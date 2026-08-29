@@ -3,7 +3,7 @@ import shutil
 import tempfile
 import uuid
 
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from google import genai
 
 from nuseek.tools.supabase_tool import (
@@ -114,16 +114,30 @@ async def report_item(
     # หมายเหตุ: description เก็บแค่ข้อความที่ผู้ใช้พิมพ์เอง (details) ไม่เอา caption ของ BLIP
     # มาต่อท้ายให้เห็นในหน้ารายละเอียด — caption ใช้แค่ตอนสร้าง embedding (combined_text) เท่านั้น
     # เพื่อช่วยให้ AI จับคู่แม่นขึ้น โดยไม่ต้องโชว์ข้อความที่ AI มองเห็นให้ผู้ใช้อ่าน
-    insert_result = insert_item_direct(
-        item_type=item_type,
-        title=title,
-        description=details,
-        image_path=storage_image_path,
-        location=location,
-        contact_phone=phone,
-        embedding=embedding,
-        user_id=user_id or None,
-    )
+    try:
+        insert_result = insert_item_direct(
+            item_type=item_type,
+            title=title,
+            description=details,
+            image_path=storage_image_path,
+            location=location,
+            contact_phone=phone,
+            embedding=embedding,
+            user_id=user_id or None,
+        )
+    except Exception as e:
+        # ลบไฟล์ชั่วคราวทิ้งก่อน ไม่ว่าจะ error หรือไม่
+        if local_tmp_path and os.path.exists(local_tmp_path):
+            os.remove(local_tmp_path)
+
+        # ดักจับ error เฉพาะจาก CHECK constraint "contact_phone_digits_only" ที่ตั้งไว้ใน Supabase
+        # แปลงเป็นข้อความไทยที่เข้าใจง่าย แทนที่จะโยน error ดิบๆ ของฐานข้อมูลกลับไปให้ frontend
+        if "contact_phone_digits_only" in str(e):
+            raise HTTPException(
+                status_code=400,
+                detail="กรุณากรอกเบอร์โทรศัพท์เป็นตัวเลขเท่านั้น (ห้ามมีตัวอักษรหรือสัญลักษณ์ปน)",
+            )
+        raise HTTPException(status_code=500, detail="บันทึกประกาศไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")
 
     # 7) ลบไฟล์ชั่วคราวทิ้ง
     if local_tmp_path and os.path.exists(local_tmp_path):

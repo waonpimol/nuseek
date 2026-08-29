@@ -31,7 +31,7 @@ async def search_by_image(image: UploadFile = File(...)):
         caption = caption_result.get("caption", "")
 
         embedding = embed_text(caption)
-        results = search_by_embedding(embedding, top_k=10, threshold=0.3)
+        results = search_by_embedding(embedding, top_k=10, threshold=0.7)
 
     finally:
         if os.path.exists(tmp_path):

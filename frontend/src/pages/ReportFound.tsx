@@ -73,11 +73,11 @@ export default function ReportFound() {
 				success: true,
 				message: result.message || "ระบบบันทึกประกาศและเริ่มกระบวนการค้นหาเจ้าของเรียบร้อยแล้ว",
 			});
-		} catch (err) {
+		} catch (err: any) {
 			console.error(err);
 			setResultModal({
 				success: false,
-				message: "เกิดข้อผิดพลาด ไม่สามารถส่งประกาศได้ กรุณาลองใหม่อีกครั้ง",
+				message: err?.message || "เกิดข้อผิดพลาด ไม่สามารถส่งประกาศได้ กรุณาลองใหม่อีกครั้ง",
 			});
 		} finally {
 			setLoading(false);

@@ -80,7 +80,16 @@ export async function reportItem(formData: FormData) {
   });
 
   if (!response.ok) {
-    throw new Error("ส่งประกาศไม่สำเร็จ");
+    // ดึงข้อความ error ที่ backend ส่งมา (เช่น "กรุณากรอกเบอร์โทรศัพท์เป็นตัวเลขเท่านั้น")
+    // แทนที่จะทิ้งไปแล้วโชว์แค่ข้อความทั่วไป
+    let detail = "ส่งประกาศไม่สำเร็จ";
+    try {
+      const errBody = await response.json();
+      if (errBody?.detail) detail = errBody.detail;
+    } catch {
+      // ไม่ใช่ JSON ก็ปล่อยข้อความ default ไว้
+    }
+    throw new Error(detail);
   }
 
   return await response.json();
