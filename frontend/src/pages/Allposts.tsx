@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
 	Home,
@@ -31,6 +31,22 @@ export default function AllPosts() {
 	const [searchQuery, setSearchQuery] = useState<string>("");
 	const [selectedLocation, setSelectedLocation] = useState<string>("all");
 	const [showNoti, setShowNoti] = useState(false);
+  const bellButtonRef = useRef<HTMLButtonElement>(null);
+  const notifDropdownRef = useRef<HTMLDivElement>(null);
+  const [arrowLeft, setArrowLeft] = useState<number | null>(null);
+
+  // คำนวณตำแหน่งลูกศรให้ชี้ตรงกระดิ่งเสมอ ไม่ว่ากล่องแจ้งเตือนจะอยู่ตำแหน่งไหน
+  // (มือถือ: กล่องอยู่กึ่งกลางจอ / จอใหญ่: กล่องยึดกับกระดิ่ง ตำแหน่งไม่เท่ากัน คำนวณสดเลยแม่นกว่า)
+  useEffect(() => {
+    if (showNoti && bellButtonRef.current && notifDropdownRef.current) {
+      const bellRect = bellButtonRef.current.getBoundingClientRect();
+      const dropdownRect = notifDropdownRef.current.getBoundingClientRect();
+      const bellCenterX = bellRect.left + bellRect.width / 2;
+      let left = bellCenterX - dropdownRect.left - 8;
+      left = Math.max(12, Math.min(left, dropdownRect.width - 28));
+      setArrowLeft(left);
+    }
+  }, [showNoti]);
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 	const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications();
 
@@ -117,7 +133,7 @@ export default function AllPosts() {
 					<div className="flex items-center gap-2 md:gap-4">
 						<div className="relative">
 							<button
-								onClick={() => setShowNoti(!showNoti)}
+								ref={bellButtonRef} onClick={() => setShowNoti(!showNoti)}
 								className={`p-2 rounded-full transition relative ${showNoti ? "text-orange-500 bg-orange-50" : "text-gray-600 hover:text-orange-500 hover:bg-gray-100"
 									}`}
 							>
@@ -128,14 +144,14 @@ export default function AllPosts() {
 							</button>
 
 							{showNoti && (
-								<div className="absolute top-12 right-0 sm:right-auto sm:-right-16 w-[92vw] max-w-[360px] bg-white rounded-2xl border border-gray-200 shadow-xl z-50 font-kanit">
-									<div className="hidden sm:block absolute -top-2 right-[73px] w-4 h-4 bg-white border-t border-l border-gray-200 rotate-45 z-10"></div>
+								<div ref={notifDropdownRef} className="fixed sm:absolute top-16 sm:top-12 left-1/2 -translate-x-1/2 w-[80vw] max-w-[300px] sm:translate-x-0 sm:left-auto sm:-right-16 sm:w-[92vw] sm:max-w-[360px] bg-white rounded-2xl border border-gray-200 shadow-xl z-50 font-kanit">
+									<div className="absolute -top-2 w-4 h-4 bg-white border-t border-l border-gray-200 rotate-45 z-10" style={{ left: arrowLeft !== null ? `${arrowLeft}px` : undefined, right: arrowLeft !== null ? undefined : '73px' }}></div>
 									<div className="relative z-20 bg-white rounded-2xl overflow-hidden">
-										<div className="flex justify-between items-center px-5 py-3.5 border-b border-gray-100">
-											<span className="font-bold text-gray-800 text-sm">การแจ้งเตือน</span>
-											<button onClick={markAllRead} className="text-xs font-semibold text-orange-500 hover:underline">อ่านทั้งหมด</button>
+										<div className="flex justify-between items-center px-3 py-2.5 sm:px-5 sm:py-3.5 border-b border-gray-100">
+											<span className="font-bold text-gray-800 text-xs sm:text-sm">การแจ้งเตือน</span>
+											<button onClick={markAllRead} className="text-[10px] sm:text-xs font-semibold text-orange-500 hover:underline">อ่านทั้งหมด</button>
 										</div>
-										<div className="max-h-[320px] overflow-y-auto divide-y divide-gray-100">
+										<div className="max-h-[260px] sm:max-h-[320px] overflow-y-auto divide-y divide-gray-100">
 											{notifications.length === 0 && (
 												<div className="p-6 text-center text-xs text-gray-400">ยังไม่มีแจ้งเตือน</div>
 											)}
@@ -144,19 +160,19 @@ export default function AllPosts() {
 													key={n.id}
 													onClick={() => {
 														markOneRead(n.id);
-														if (n.matched_item_id) navigate(`/postdetail/${n.matched_item_id}`);
+														const targetItemId = n.matched_item_id || n.item_id; if (targetItemId) navigate(`/postdetail/${targetItemId}`);
 													}}
-													className={`flex gap-3 p-4 hover:bg-gray-50 transition cursor-pointer text-left ${n.is_read ? "" : "bg-orange-50/40"}`}
+													className={`flex gap-2 p-2.5 sm:gap-3 sm:p-4 hover:bg-gray-50 transition cursor-pointer text-left ${n.is_read ? "" : "bg-orange-50/40"}`}
 												>
-													<div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+													<div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
 														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 															<circle cx="12" cy="12" r="9" />
 															<path d="M8 12l3 3 5-6" />
 														</svg>
 													</div>
 													<div className="flex flex-col gap-0.5 flex-1">
-														<p className="text-[11px] text-gray-600 leading-normal">{n.message}</p>
-														<span className="text-[10px] text-gray-400">{formatRelativeTime(n.created_at)}</span>
+														<p className="text-[10px] sm:text-[11px] text-gray-600 leading-normal">{n.message}</p>
+														<span className="text-[9px] sm:text-[10px] text-gray-400">{formatRelativeTime(n.created_at)}</span>
 													</div>
 												</div>
 											))}
@@ -187,7 +203,7 @@ export default function AllPosts() {
 						<Link
 							to="/"
 							onClick={() => setMobileMenuOpen(false)}
-							className="flex items-center gap-3 py-3 text-gray-700 hover:text-orange-500 border-b border-gray-50"
+							className="flex items-center gap-2.5 py-2.5 text-sm text-gray-700 hover:text-orange-500 border-b border-gray-50"
 						>
 							<Home size={20} />
 							หน้าแรก
@@ -195,7 +211,7 @@ export default function AllPosts() {
 						<Link
 							to="/searchbyimage"
 							onClick={() => setMobileMenuOpen(false)}
-							className="flex items-center gap-3 py-3 text-gray-700 hover:text-orange-500 border-b border-gray-50"
+							className="flex items-center gap-2.5 py-2.5 text-sm text-gray-700 hover:text-orange-500 border-b border-gray-50"
 						>
 							<Image size={20} />
 							ค้นหาจากรูป
@@ -203,7 +219,7 @@ export default function AllPosts() {
 						<Link
 							to="/allposts"
 							onClick={() => setMobileMenuOpen(false)}
-							className="flex items-center gap-3 py-3 text-orange-500"
+							className="flex items-center gap-2.5 py-2.5 text-sm text-orange-500"
 						>
 							<FileText size={20} />
 							ประกาศทั้งหมด
@@ -213,13 +229,13 @@ export default function AllPosts() {
 			</nav>
 
 			{/* ================= Main Container ================= */}
-			<div className="max-w-6xl mx-auto p-6 space-y-6">
+			<div className="max-w-6xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
 
 				{/* ---- (Filter & Search Header) ---- */}
-				<div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
+				<div className="bg-white rounded-2xl p-3 sm:p-6 shadow-sm border border-gray-100 space-y-3 sm:space-y-4">
 
-					<div className="flex items-center justify-between flex-wrap gap-4">
-						<div className="flex bg-gray-100 p-1.5 rounded-xl gap-1">
+					<div className="flex items-center justify-between flex-wrap gap-3">
+						<div className="flex bg-gray-100 p-1 sm:p-1.5 rounded-xl gap-1">
 							{["ทั้งหมด", "ของหาย", "ของที่พบ"].map((tab) => {
 								const getActiveColors = () => {
 									if (tab === "ของหาย") return "bg-rose-500 text-white shadow-sm";
@@ -231,7 +247,7 @@ export default function AllPosts() {
 									<button
 										key={tab}
 										onClick={() => setActiveTab(tab)}
-										className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${activeTab === tab
+										className={`whitespace-nowrap px-3 py-1.5 text-xs sm:px-6 sm:py-2.5 sm:text-sm rounded-lg font-medium transition-all ${activeTab === tab
 											? getActiveColors()
 											: "text-gray-500 hover:text-gray-800 hover:bg-white/50"
 											}`}
@@ -242,20 +258,20 @@ export default function AllPosts() {
 							})}
 						</div>
 
-						<div className="text-sm text-gray-500 font-medium">
-							พบทั้งหมด <span className="text-orange-500 font-bold text-base">{filteredPosts.length}</span> ประกาศ
+						<div className="text-xs sm:text-sm text-gray-500 font-medium">
+							พบทั้งหมด <span className="text-orange-500 font-bold text-sm sm:text-base">{filteredPosts.length}</span> ประกาศ
 						</div>
 					</div>
 
-					<div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+					<div className="grid grid-cols-1 md:grid-cols-12 gap-2 sm:gap-3">
 						<div className="md:col-span-7 relative">
-							<Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
+							<Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
 							<input
 								type="text"
 								placeholder="ค้นหาชื่อสิ่งของ สี ลักษณะ หรือสถานที่พบ..."
 								value={searchQuery}
 								onChange={(e) => setSearchQuery(e.target.value)}
-								className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition"
+								className="w-full pl-9 sm:pl-11 pr-3 sm:pr-4 py-2 sm:py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition"
 							/>
 						</div>
 
@@ -263,7 +279,7 @@ export default function AllPosts() {
 							<select
 								value={selectedLocation}
 								onChange={(e) => setSelectedLocation(e.target.value)}
-								className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition text-gray-700 appearance-none cursor-pointer"
+								className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition text-gray-700 appearance-none cursor-pointer"
 							>
 								<option value="all">ทุกสถานที่ / คณะ</option>
 								{LOCATIONS.map((loc) => (
@@ -278,9 +294,9 @@ export default function AllPosts() {
 								setSearchQuery("");
 								setSelectedLocation("all");
 							}}
-							className="md:col-span-2 flex items-center justify-center gap-2 border border-gray-200 rounded-xl px-4 py-3 hover:bg-gray-50 text-gray-700 font-medium transition shadow-sm"
+							className="md:col-span-2 flex items-center justify-center gap-1.5 sm:gap-2 border border-gray-200 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-sm hover:bg-gray-50 text-gray-700 font-medium transition shadow-sm"
 						>
-							<SlidersHorizontal size={16} />
+							<SlidersHorizontal size={14} />
 							ล้างตัวกรอง
 						</button>
 					</div>
@@ -301,25 +317,26 @@ export default function AllPosts() {
 
 				{/* ---- ส่วนแสดงรายการประกาศ (Grid Cards) ---- */}
 				{!loading && !error && filteredPosts.length > 0 && (
-					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
 						{filteredPosts.map((post) => (
 							<div
 								key={post.id}
-								className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md border border-gray-100 transition-all flex flex-col group cursor-pointer"
+								className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md border border-gray-100 transition-all flex flex-row sm:flex-col group cursor-pointer"
 								onClick={() => navigate(`/postdetail/${post.id}`)}
 							>
-								{/* ส่วนรูปภาพของโพสต์ */}
-								<div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+								{/* ส่วนรูปภาพของโพสต์ — มือถือ: รูปเล็กด้านซ้ายเป็นแถว / จอใหญ่: รูปใหญ่ด้านบนเป็นการ์ด */}
+								<div className="relative w-24 h-24 sm:w-full sm:aspect-[4/3] flex-shrink-0 overflow-hidden bg-gray-100">
 									<img
 										src={post.image_url || FALLBACK_IMAGE}
 										alt={post.title}
-										className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+										className="w-full h-full object-cover sm:group-hover:scale-105 transition duration-500"
 										onError={(e) => {
 											(e.target as HTMLImageElement).src = FALLBACK_IMAGE;
 										}}
 									/>
 
-									<div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full flex items-center gap-2 shadow-sm border border-gray-100 select-none">
+									{/* ป้ายประเภท: โชว์ทับรูปเฉพาะจอใหญ่ (รูปเล็กบนมือถือไม่พอที่ใส่ป้าย) */}
+									<div className="hidden sm:flex absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full items-center gap-2 shadow-sm border border-gray-100 select-none">
 										<span className={`w-2.5 h-2.5 rounded-full ${post.type === "lost" ? "bg-rose-500" : "bg-sky-500"
 											}`} />
 										<span className="text-xs font-semibold text-gray-700 tracking-wide">
@@ -329,25 +346,31 @@ export default function AllPosts() {
 								</div>
 
 								{/* ส่วนเนื้อหาในโพสต์ */}
-								<div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-									<div className="space-y-2">
-										<h3 className="text-base font-semibold text-gray-800 line-clamp-2 pt-1 group-hover:text-orange-500 transition">
+								<div className="p-3 sm:p-5 flex-1 flex flex-col justify-center sm:justify-between gap-1.5 sm:gap-4 min-w-0">
+									<div className="space-y-1 sm:space-y-2">
+										{/* ป้ายประเภทแบบข้อความเล็ก โชว์เฉพาะมือถือ (แทนป้ายทับรูป) */}
+										<div className="flex sm:hidden items-center gap-1.5 text-[11px] font-semibold">
+											<span className={`w-2 h-2 rounded-full ${post.type === "lost" ? "bg-rose-500" : "bg-sky-500"}`} />
+											<span className={post.type === "lost" ? "text-rose-600" : "text-sky-600"}>{typeLabel(post.type)}</span>
+										</div>
+										<h3 className="text-sm sm:text-base font-semibold text-gray-800 line-clamp-1 sm:line-clamp-2 sm:pt-1 group-hover:text-orange-500 transition">
 											{post.title || "ไม่ระบุชื่อสิ่งของ"}
 										</h3>
 									</div>
 
-									<div className="space-y-2 pt-2 border-t border-gray-100 text-xs text-gray-500">
-										<div className="flex items-center gap-1.5">
-											<MapPin size={14} className="text-gray-400" />
-											<span>{post.location || "ไม่ระบุสถานที่"}</span>
+									<div className="space-y-1 sm:space-y-2 sm:pt-2 sm:border-t sm:border-gray-100 text-[11px] sm:text-xs text-gray-500">
+										<div className="flex items-center gap-1.5 truncate">
+											<MapPin size={13} className="text-gray-400 flex-shrink-0" />
+											<span className="truncate">{post.location || "ไม่ระบุสถานที่"}</span>
 										</div>
 										<div className="flex items-center gap-1.5">
-											<Clock size={14} className="text-gray-400" />
+											<Clock size={13} className="text-gray-400 flex-shrink-0" />
 											<span>{post.created_at ? formatRelativeTime(post.created_at) : "-"}</span>
 										</div>
 									</div>
 
-									<div className="flex items-center justify-between pt-3 border-t border-gray-100 mt-auto">
+									{/* แถวผู้ประกาศ + ปุ่มดูรายละเอียด: โชว์เฉพาะจอใหญ่ (การ์ดทั้งใบกดได้อยู่แล้วบนมือถือ) */}
+									<div className="hidden sm:flex items-center justify-between pt-3 border-t border-gray-100 mt-auto">
 										<div className="flex items-center gap-2.5">
 											{post.reporter_avatar_url ? (
 												<img

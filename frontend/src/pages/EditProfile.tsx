@@ -86,6 +86,22 @@ export default function EditProfile() {
 	const [instagram, setInstagram] = useState<string>("");
 	const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 	const [showNoti, setShowNoti] = useState(false);
+  const bellButtonRef = useRef<HTMLButtonElement>(null);
+  const notifDropdownRef = useRef<HTMLDivElement>(null);
+  const [arrowLeft, setArrowLeft] = useState<number | null>(null);
+
+  // คำนวณตำแหน่งลูกศรให้ชี้ตรงกระดิ่งเสมอ ไม่ว่ากล่องแจ้งเตือนจะอยู่ตำแหน่งไหน
+  // (มือถือ: กล่องอยู่กึ่งกลางจอ / จอใหญ่: กล่องยึดกับกระดิ่ง ตำแหน่งไม่เท่ากัน คำนวณสดเลยแม่นกว่า)
+  useEffect(() => {
+    if (showNoti && bellButtonRef.current && notifDropdownRef.current) {
+      const bellRect = bellButtonRef.current.getBoundingClientRect();
+      const dropdownRect = notifDropdownRef.current.getBoundingClientRect();
+      const bellCenterX = bellRect.left + bellRect.width / 2;
+      let left = bellCenterX - dropdownRect.left - 8;
+      left = Math.max(12, Math.min(left, dropdownRect.width - 28));
+      setArrowLeft(left);
+    }
+  }, [showNoti]);
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 	const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications();
 	const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -227,7 +243,13 @@ export default function EditProfile() {
 			alert("บันทึกการเปลี่ยนแปลงทั้งหมดเรียบร้อยแล้ว");
 			navigate("/profile");
 		} catch (error: any) {
-			alert("เกิดข้อผิดพลาดในการบันทึก: " + error.message);
+			// ดักจับ error เฉพาะจาก CHECK constraint ที่ตั้งไว้ใน Supabase (phone_number_digits_only)
+			// แล้วแปลงเป็นข้อความไทยที่เข้าใจง่าย แทนที่จะโชว์ error ดิบๆ จากฐานข้อมูล
+			if (error.message?.includes("phone_number_digits_only")) {
+				alert("กรุณากรอกเบอร์โทรศัพท์เป็นตัวเลขเท่านั้น (ห้ามมีตัวอักษรหรือสัญลักษณ์ปน)");
+			} else {
+				alert("เกิดข้อผิดพลาดในการบันทึก: " + error.message);
+			}
 		} finally {
 			setSaving(false);
 		}
@@ -285,7 +307,7 @@ export default function EditProfile() {
 					<div className="flex items-center gap-2 md:gap-4">
 						<div className="relative">
 							<button
-								onClick={() => setShowNoti(!showNoti)}
+								ref={bellButtonRef} onClick={() => setShowNoti(!showNoti)}
 								className={`p-2 rounded-full transition relative ${showNoti ? "text-orange-500 bg-orange-50" : "text-gray-600 hover:text-orange-500 hover:bg-gray-100"
 									}`}
 							>
@@ -296,14 +318,14 @@ export default function EditProfile() {
 							</button>
 
 							{showNoti && (
-								<div className="absolute top-12 right-0 sm:right-auto sm:-right-16 w-[92vw] max-w-[360px] bg-white rounded-2xl border border-gray-200 shadow-xl z-50 font-kanit">
-									<div className="hidden sm:block absolute -top-2 right-[73px] w-4 h-4 bg-white border-t border-l border-gray-200 rotate-45 z-10"></div>
+								<div ref={notifDropdownRef} className="fixed sm:absolute top-16 sm:top-12 left-1/2 -translate-x-1/2 w-[80vw] max-w-[300px] sm:translate-x-0 sm:left-auto sm:-right-16 sm:w-[92vw] sm:max-w-[360px] bg-white rounded-2xl border border-gray-200 shadow-xl z-50 font-kanit">
+									<div className="absolute -top-2 w-4 h-4 bg-white border-t border-l border-gray-200 rotate-45 z-10" style={{ left: arrowLeft !== null ? `${arrowLeft}px` : undefined, right: arrowLeft !== null ? undefined : '73px' }}></div>
 									<div className="relative z-20 bg-white rounded-2xl overflow-hidden">
-										<div className="flex justify-between items-center px-5 py-3.5 border-b border-gray-100">
-											<span className="font-bold text-gray-800 text-sm">การแจ้งเตือน</span>
-											<button onClick={markAllRead} className="text-xs font-semibold text-orange-500 hover:underline">อ่านทั้งหมด</button>
+										<div className="flex justify-between items-center px-3 py-2.5 sm:px-5 sm:py-3.5 border-b border-gray-100">
+											<span className="font-bold text-gray-800 text-xs sm:text-sm">การแจ้งเตือน</span>
+											<button onClick={markAllRead} className="text-[10px] sm:text-xs font-semibold text-orange-500 hover:underline">อ่านทั้งหมด</button>
 										</div>
-										<div className="max-h-[320px] overflow-y-auto divide-y divide-gray-100">
+										<div className="max-h-[260px] sm:max-h-[320px] overflow-y-auto divide-y divide-gray-100">
 											{notifications.length === 0 && (
 												<div className="p-6 text-center text-xs text-gray-400">ยังไม่มีแจ้งเตือน</div>
 											)}
@@ -312,19 +334,19 @@ export default function EditProfile() {
 													key={n.id}
 													onClick={() => {
 														markOneRead(n.id);
-														if (n.matched_item_id) navigate(`/postdetail/${n.matched_item_id}`);
+														const targetItemId = n.matched_item_id || n.item_id; if (targetItemId) navigate(`/postdetail/${targetItemId}`);
 													}}
-													className={`flex gap-3 p-4 hover:bg-gray-50 transition cursor-pointer text-left ${n.is_read ? "" : "bg-orange-50/40"}`}
+													className={`flex gap-2 p-2.5 sm:gap-3 sm:p-4 hover:bg-gray-50 transition cursor-pointer text-left ${n.is_read ? "" : "bg-orange-50/40"}`}
 												>
-													<div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+													<div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
 														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 															<circle cx="12" cy="12" r="9" />
 															<path d="M8 12l3 3 5-6" />
 														</svg>
 													</div>
 													<div className="flex flex-col gap-0.5 flex-1">
-														<p className="text-[11px] text-gray-600 leading-normal">{n.message}</p>
-														<span className="text-[10px] text-gray-400">{formatRelativeTime(n.created_at)}</span>
+														<p className="text-[10px] sm:text-[11px] text-gray-600 leading-normal">{n.message}</p>
+														<span className="text-[9px] sm:text-[10px] text-gray-400">{formatRelativeTime(n.created_at)}</span>
 													</div>
 												</div>
 											))}
@@ -333,7 +355,9 @@ export default function EditProfile() {
 								</div>
 							)}
 						</div>
-						<Link to="/profile" className="hover:text-orange-500"><User /></Link>
+						<Link to="/profile" className="hover:text-orange-500 text-gray-600">
+							<User />
+						</Link>
 
 						{/* ปุ่มแฮมเบอร์เกอร์ (มือถือเท่านั้น) */}
 						<button
@@ -349,15 +373,15 @@ export default function EditProfile() {
 				{/* Menu (mobile, ยุบ/ขยาย) */}
 				{mobileMenuOpen && (
 					<div className="md:hidden border-t border-gray-100 bg-white px-4 py-2 flex flex-col">
-						<Link to="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 py-3 text-gray-700 hover:text-orange-500 border-b border-gray-50">
+						<Link to="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2.5 py-2.5 text-sm text-gray-700 hover:text-orange-500 border-b border-gray-50">
 							<Home size={20} />
 							หน้าแรก
 						</Link>
-						<Link to="/searchbyimage" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 py-3 text-gray-700 hover:text-orange-500 border-b border-gray-50">
+						<Link to="/searchbyimage" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2.5 py-2.5 text-sm text-gray-700 hover:text-orange-500 border-b border-gray-50">
 							<Image size={20} />
 							ค้นหาจากรูป
 						</Link>
-						<Link to="/allposts" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 py-3 text-gray-700 hover:text-orange-500">
+						<Link to="/allposts" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2.5 py-2.5 text-sm text-gray-700 hover:text-orange-500">
 							<FileText size={20} />
 							ประกาศทั้งหมด
 						</Link>
@@ -376,21 +400,22 @@ export default function EditProfile() {
 					<form onSubmit={handleSaveAll} className="space-y-6">
 
 						{/* ================= Main Card ================= */}
-						<div className="bg-white rounded-3xl shadow-sm p-5 md:p-8">
+						<div className="bg-white rounded-3xl shadow-sm p-4 sm:p-5 md:p-8">
 
 							{/* ---- Avatar Header ---- */}
-							<div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 pb-6 border-b text-center sm:text-left">
+							<div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 sm:gap-6 pb-4 sm:pb-6 border-b text-center sm:text-left">
 								<div className="relative">
-									<Avatar name={displayName} avatarUrl={avatarUrl} size={96} />
+									<Avatar name={displayName} avatarUrl={avatarUrl} size={76} />
 
 									<button
 										type="button"
 										onClick={() => fileInputRef.current?.click()}
 										disabled={uploadingAvatar}
-										className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white flex items-center justify-center shadow-sm border-2 border-white transition"
+										className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white flex items-center justify-center shadow-sm border-2 border-white transition"
 										aria-label="เปลี่ยนรูปโปรไฟล์"
 									>
-										<Camera size={14} />
+										<Camera size={11} className="sm:hidden" />
+										<Camera size={14} className="hidden sm:block" />
 									</button>
 
 									<input
@@ -403,8 +428,8 @@ export default function EditProfile() {
 								</div>
 
 								<div className="flex-1">
-									<h2 className="text-xl font-semibold text-gray-800">จัดการข้อมูลส่วนตัว</h2>
-									<p className="text-gray-500 mt-1">จัดการข้อมูลส่วนตัวของคุณ</p>
+									<h2 className="text-base sm:text-xl font-semibold text-gray-800">จัดการข้อมูลส่วนตัว</h2>
+									<p className="text-gray-500 mt-1 text-xs sm:text-base">จัดการข้อมูลส่วนตัวของคุณ</p>
 
 									<div className="flex items-center justify-center sm:justify-start gap-3 mt-3">
 										<button
@@ -432,94 +457,94 @@ export default function EditProfile() {
 							</div>
 
 							{/* ---- 1. ข้อมูลพื้นฐาน ---- */}
-							<div className="py-6 border-b">
-								<div className="flex items-center gap-3 mb-5">
-									<User className="text-orange-500" size={20} />
-									<h3 className="text-lg font-semibold text-gray-800">ข้อมูลพื้นฐาน</h3>
+							<div className="py-4 sm:py-6 border-b">
+								<div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-5">
+									<User className="text-orange-500" size={16} />
+									<h3 className="text-sm sm:text-lg font-semibold text-gray-800">ข้อมูลพื้นฐาน</h3>
 								</div>
 
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
 									<div>
-										<label className="block text-sm text-gray-500 mb-1.5">ชื่อ</label>
+										<label className="block text-xs sm:text-sm text-gray-500 mb-1">ชื่อ</label>
 										<input
 											type="text"
 											value={firstName}
 											onChange={(e) => setFirstName(e.target.value)}
-											className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition"
+											className="w-full px-3 py-2 sm:px-4 sm:py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition"
 										/>
 									</div>
 
 									<div>
-										<label className="block text-sm text-gray-500 mb-1.5">นามสกุล</label>
+										<label className="block text-xs sm:text-sm text-gray-500 mb-1">นามสกุล</label>
 										<input
 											type="text"
 											value={lastName}
 											onChange={(e) => setLastName(e.target.value)}
-											className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition"
+											className="w-full px-3 py-2 sm:px-4 sm:py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition"
 										/>
 									</div>
 								</div>
 
-								<div className="mt-4">
-									<label className="block text-sm text-gray-500 mb-1.5">ชื่อที่แสดง</label>
+								<div className="mt-3 sm:mt-4">
+									<label className="block text-xs sm:text-sm text-gray-500 mb-1">ชื่อที่แสดง</label>
 									<input
 										type="text"
 										required
 										value={displayName}
 										onChange={(e) => setDisplayName(e.target.value)}
-										className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition"
+										className="w-full px-3 py-2 sm:px-4 sm:py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition"
 									/>
-									<p className="text-xs text-gray-400 mt-1.5">ชื่อนี้จะแสดงในประกาศและโปรไฟล์ของคุณ</p>
+									<p className="text-[10px] sm:text-xs text-gray-400 mt-1.5">ชื่อนี้จะแสดงในประกาศและโปรไฟล์ของคุณ</p>
 								</div>
 							</div>
 
 							{/* ---- 2. ข้อมูลการติดต่อ ---- */}
-							<div className="py-6">
-								<div className="flex items-center gap-3 mb-5">
-									<Phone className="text-orange-500" size={20} />
-									<h3 className="text-lg font-semibold text-gray-800">ข้อมูลการติดต่อ</h3>
+							<div className="py-4 sm:py-6">
+								<div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-5">
+									<Phone className="text-orange-500" size={16} />
+									<h3 className="text-sm sm:text-lg font-semibold text-gray-800">ข้อมูลการติดต่อ</h3>
 								</div>
 
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
 									<div>
-										<label className="block text-sm text-gray-500 mb-1.5">เบอร์โทรศัพท์</label>
+										<label className="block text-xs sm:text-sm text-gray-500 mb-1">เบอร์โทรศัพท์</label>
 										<input
 											type="text"
 											value={phone}
 											onChange={(e) => setPhone(e.target.value)}
-											className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition"
+											className="w-full px-3 py-2 sm:px-4 sm:py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition"
 										/>
 									</div>
 
 									<div>
-										<label className="block text-sm text-gray-500 mb-1.5">Line ID</label>
+										<label className="block text-xs sm:text-sm text-gray-500 mb-1">Line ID</label>
 										<input
 											type="text"
 											value={lineId}
 											onChange={(e) => setLineId(e.target.value)}
-											className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition"
+											className="w-full px-3 py-2 sm:px-4 sm:py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition"
 										/>
 									</div>
 								</div>
 
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mt-3 sm:mt-4">
 									<div>
-										<label className="block text-sm text-gray-500 mb-1.5">Facebook</label>
+										<label className="block text-xs sm:text-sm text-gray-500 mb-1">Facebook</label>
 										<input
 											type="text"
 											value={facebook}
 											onChange={(e) => setFacebook(e.target.value)}
-											className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition"
+											className="w-full px-3 py-2 sm:px-4 sm:py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition"
 										/>
 									</div>
 
 									<div>
-										<label className="block text-sm text-gray-500 mb-1.5">Instagram</label>
+										<label className="block text-xs sm:text-sm text-gray-500 mb-1">Instagram</label>
 										<input
 											type="text"
 											value={instagram}
 											onChange={(e) => setInstagram(e.target.value)}
-											className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition"
+											className="w-full px-3 py-2 sm:px-4 sm:py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition"
 										/>
 									</div>
 								</div>
@@ -531,7 +556,7 @@ export default function EditProfile() {
 						<div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 sm:gap-4">
 							<Link
 								to="/profile"
-								className="flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-800 px-8 py-3.5 rounded-xl font-semibold shadow-sm hover:bg-gray-50 transition"
+								className="flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-800 px-5 py-2.5 sm:px-8 sm:py-3.5 text-sm sm:text-base rounded-xl font-semibold shadow-sm hover:bg-gray-50 transition"
 							>
 								<X size={18} />
 								ยกเลิก
@@ -540,7 +565,7 @@ export default function EditProfile() {
 							<button
 								type="submit"
 								disabled={saving}
-								className="flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white px-7 py-3.5 rounded-xl font-semibold shadow-sm transition"
+								className="flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white px-5 py-2.5 sm:px-7 sm:py-3.5 text-sm sm:text-base rounded-xl font-semibold shadow-sm transition"
 							>
 								<Save size={18} />
 								{saving ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
@@ -553,9 +578,10 @@ export default function EditProfile() {
 				{/* ================= Logout ================= */}
 				<button
 					onClick={handleLogoutClick}
-					className="w-full bg-white hover:bg-red-50 border border-red-200 text-red-500 rounded-2xl py-4 flex justify-center items-center gap-3 font-medium transition"
+					className="w-full bg-white hover:bg-red-50 border border-red-200 text-red-500 rounded-2xl py-2.5 sm:py-4 text-sm sm:text-base flex justify-center items-center gap-2 sm:gap-3 font-medium transition"
 				>
-					<LogOut size={20} />
+					<LogOut size={18} className="sm:hidden" />
+					<LogOut size={20} className="hidden sm:block" />
 					ออกจากระบบ
 				</button>
 

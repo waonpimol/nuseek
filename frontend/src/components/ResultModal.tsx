@@ -8,6 +8,9 @@ interface ResultModalProps {
 	message: string;
 	confirmLabel?: string;
 	onConfirm: () => void;
+	// ปุ่มรอง (optional) เช่น "ดูรายละเอียด" ให้กดพาไปหน้าที่แมทช์กันได้เลย
+	actionLabel?: string;
+	onAction?: () => void;
 }
 
 // แปลง **ข้อความ** จาก markdown อย่างง่าย ให้กลายเป็น <strong> จริง
@@ -29,6 +32,8 @@ export default function ResultModal({
 	message,
 	confirmLabel = 'ตกลง',
 	onConfirm,
+	actionLabel,
+	onAction,
 }: ResultModalProps) {
 	if (!open) return null;
 
@@ -47,7 +52,13 @@ export default function ResultModal({
 
 				<p style={styles.message}>{renderWithBold(message)}</p>
 
-				<button onClick={onConfirm} style={styles.confirmBtn}>
+				{onAction && actionLabel && (
+					<button onClick={onAction} style={styles.actionBtn}>
+						{actionLabel}
+					</button>
+				)}
+
+				<button onClick={onConfirm} style={onAction && actionLabel ? styles.confirmBtnSecondary : styles.confirmBtn}>
 					{confirmLabel}
 				</button>
 			</div>
@@ -103,6 +114,33 @@ const styles: Record<string, React.CSSProperties> = {
 	confirmBtn: {
 		width: '100%',
 		backgroundColor: '#ED8936',
+		color: '#FFFFFF',
+		border: 'none',
+		padding: '12px 0',
+		borderRadius: '12px',
+		fontSize: '14px',
+		fontWeight: '600',
+		cursor: 'pointer',
+		fontFamily: 'inherit',
+	},
+	// ปุ่มหลักตอนมีปุ่มรอง (actionBtn) อยู่ด้วย — ให้ดูรองลงมาเป็นทางเลือก "ปิด" แทน
+	confirmBtnSecondary: {
+		width: '100%',
+		backgroundColor: '#F1F5F9',
+		color: '#4A5568',
+		border: 'none',
+		padding: '12px 0',
+		borderRadius: '12px',
+		fontSize: '14px',
+		fontWeight: '600',
+		cursor: 'pointer',
+		fontFamily: 'inherit',
+		marginTop: '10px',
+	},
+	// ปุ่มรอง (เช่น "ดูรายละเอียด") เป็นปุ่มหลักที่เด่นกว่าตอนมีอยู่คู่กับปุ่ม "ปิด"
+	actionBtn: {
+		width: '100%',
+		backgroundColor: '#16A34A',
 		color: '#FFFFFF',
 		border: 'none',
 		padding: '12px 0',

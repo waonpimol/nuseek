@@ -42,7 +42,7 @@ def attach_image_url(row: dict) -> dict:
 # INSERT ITEM (plain function, ไม่ผ่าน ADK/LLM)
 # ใช้โดย /report ตรงๆ เพราะขั้นตอนนี้ตายตัวอยู่แล้ว ไม่มีอะไรให้ AI ต้อง "ตัดสินใจ"
 # ==========================================
-def insert_item_direct(item_type, title, description, image_path, location, contact_phone, embedding, user_id):
+def insert_item_direct(item_type, title, description, image_path, location, embedding, user_id):
     if not embedding:
         return {"success": False, "error": "ไม่พบ embedding"}
 
@@ -52,7 +52,6 @@ def insert_item_direct(item_type, title, description, image_path, location, cont
         "description": description,
         "image_path": image_path,
         "location": location,
-        "contact_phone": contact_phone,
         "embedding": embedding,
         "status": "active",
         "user_id": user_id,
@@ -392,3 +391,113 @@ def confirm_match(match_id: str):
     _notify_match_confirmed(lost_item_id, found_item_id)
 
     return {"success": True, "lost_item_id": lost_item_id, "found_item_id": found_item_id}
+
+
+# ==========================================
+# CLAIM ITEM (ปุ่ม "ใช่ของฉัน" จากหน้าค้นหาด้วยรูปภาพ)
+# ==========================================
+def claim_item(item_id: str, claimant_user_id: str):
+    """ผู้ใช้ที่ค้นหาด้วยรูปภาพ (ยังไม่เคยแจ้งของหายในระบบมาก่อน) กดยืนยันว่าไอเทมนี้เป็นของตัวเอง
+    ต่างจาก confirm_match ตรงที่ไม่มี "แมทช์" ที่ AI สร้างไว้ล่วงหน้า
+    ขั้นตอนนี้แค่บันทึกลง table claims (status='pending') + แจ้งเตือนเจ้าของโพสต์
+    ยังไม่ปิดเคสทันที ต้องรอเจ้าของกดปุ่ม "ได้รับของแล้ว" ก่อน (ดู confirm_claim ด้านล่าง)"""
+    item_res = (
+        supabase.table("items").select("id, title, user_id")
+        .eq("id", item_id).maybe_single().execute()
+    )
+    item_data = item_res.data if item_res else None
+    if not item_data:
+        return {"success": False, "error": "ไม่พบโพสต์นี้"}
+
+    owner_id = item_data.get("user_id")
+    if not owner_id:
+        return {"success": False, "error": "โพสต์นี้ไม่มีเจ้าของที่ระบุไว้ แจ้งเตือนไม่ได้"}
+
+    claimant_res = (
+        supabase.table("users")
+        .select("display_name, phone_number, line_id, facebook_url, instagram_username")
+        .eq("id", claimant_user_id).maybe_single().execute()
+    )
+    claimant = claimant_res.data if claimant_res else {}
+    claimant = claimant or {}
+
+    claimant_name = claimant.get("display_name") or "ผู้ใช้ท่านหนึ่ง"
+
+    contact_parts = []
+    if claimant.get("phone_number"):
+        contact_parts.append(f"เบอร์โทร {claimant['phone_number']}")
+    if claimant.get("line_id"):
+        contact_parts.append(f"Line {claimant['line_id']}")
+    if claimant.get("facebook_url"):
+        contact_parts.append(f"Facebook {claimant['facebook_url']}")
+    if claimant.get("instagram_username"):
+        contact_parts.append(f"Instagram {claimant['instagram_username']}")
+    contact_text = " / ".join(contact_parts) if contact_parts else "ยังไม่มีข้อมูลติดต่อ"
+
+    title = item_data.get("title") or "สิ่งของนี้"
+
+    # บันทึกการอ้างสิทธิ์ไว้ก่อน (ยังไม่ปิดเคส) เพื่อให้เจ้าของกด "ได้รับของแล้ว" ยืนยันได้ทีหลัง
+    claim_result = (
+        supabase.table("claims")
+        .insert({"item_id": item_id, "claimant_user_id": claimant_user_id, "status": "pending"})
+        .execute()
+    )
+    claim_row = (claim_result.data or [{}])[0]
+    claim_id = claim_row.get("id")
+
+    message = (
+        f'{claimant_name} แจ้งว่า "{title}" ที่คุณประกาศไว้น่าจะเป็นของเขา '
+        f"ลองติดต่อกลับไปตรวจสอบดูนะ ({contact_text}) พอส่งคืนของแล้วอย่าลืมกดยืนยัน \"ได้รับของแล้ว\" ที่หน้าโพสต์นี้ด้วย"
+    )
+
+    create_notification(
+        user_id=owner_id,
+        item_id=item_id,
+        matched_item_id=None,
+        message=message,
+    )
+
+    return {"success": True, "claim_id": claim_id}
+
+
+# ==========================================
+# CONFIRM CLAIM (ปุ่ม "ได้รับของแล้ว/ส่งคืนของแล้ว" กดได้ทั้ง 2 ฝ่าย)
+# ==========================================
+def confirm_claim(claim_id: str, confirming_user_id: str = None):
+    """ฝ่ายใดฝ่ายหนึ่งกดยืนยันว่ามีการส่งคืนของกันเรียบร้อยแล้ว (เจ้าของโพสต์ หรือ ผู้อ้างสิทธิ์ก็ได้)
+    ตอนนี้แหละที่ไอเทมถึงจะเปลี่ยนเป็น matched จริง (หายจากหน้าประกาศทั่วไป
+    ไปนับรวมใน KPI 'พบเจ้าของแล้ว' ที่หน้าโปรไฟล์แทน)
+
+    สำคัญ: ต้องแจ้งเตือนไปหา "อีกฝั่งที่ไม่ได้กด" เสมอ ไม่ว่าใครจะเป็นคนกดยืนยันก็ตาม
+    (ก่อนหน้านี้เคย hardcode ไว้ว่าแจ้งไปหาผู้อ้างสิทธิ์เท่านั้น ถ้าผู้อ้างสิทธิ์เป็นคนกดเอง
+    เจ้าของโพสต์จะไม่มีทางรู้เลยว่าเคสปิดแล้ว)"""
+    claim_res = (
+        supabase.table("claims").select("*").eq("id", claim_id).maybe_single().execute()
+    )
+    if not claim_res or not claim_res.data:
+        return {"success": False, "error": "ไม่พบคำขอนี้"}
+
+    claim = claim_res.data
+    item_id = claim["item_id"]
+    claimant_user_id = claim["claimant_user_id"]
+
+    supabase.table("claims").update({"status": "confirmed"}).eq("id", claim_id).execute()
+    update_item_status(item_id, "matched")
+
+    item_res = supabase.table("items").select("title, user_id").eq("id", item_id).maybe_single().execute()
+    item_data = item_res.data if item_res else {}
+    title = item_data.get("title")
+    owner_id = item_data.get("user_id")
+
+    # แจ้งไปหา "อีกฝั่งที่ไม่ได้กด" เสมอ
+    notify_target = claimant_user_id if confirming_user_id == owner_id else owner_id
+
+    if notify_target:
+        create_notification(
+            user_id=notify_target,
+            item_id=item_id,
+            matched_item_id=None,
+            message=f'อีกฝั่งยืนยันแล้วว่า "{title or "สิ่งของ"}" ถูกส่งคืนเรียบร้อย เคสนี้ปิดแล้วนะ 🎉',
+        )
+
+    return {"success": True, "item_id": item_id}

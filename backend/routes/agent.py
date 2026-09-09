@@ -62,7 +62,6 @@ async def report_item(
     item_type: str = Form(...),       # "lost" หรือ "found"
     item_name: str = Form(""),        # อาจไม่มี (เช่นฟอร์ม ReportFound ที่ไม่มีช่องชื่อแยก)
     details: str = Form(""),
-    phone: str = Form(""),
     location: str = Form(""),         # สถานที่ที่ผู้ใช้เลือกจาก dropdown ในฟอร์ม
     user_id: str = Form(""),          # uuid ของผู้ login ที่ส่งมาจาก frontend (supabase.auth.getUser())
     image: UploadFile | None = File(None),
@@ -114,6 +113,8 @@ async def report_item(
     # หมายเหตุ: description เก็บแค่ข้อความที่ผู้ใช้พิมพ์เอง (details) ไม่เอา caption ของ BLIP
     # มาต่อท้ายให้เห็นในหน้ารายละเอียด — caption ใช้แค่ตอนสร้าง embedding (combined_text) เท่านั้น
     # เพื่อช่วยให้ AI จับคู่แม่นขึ้น โดยไม่ต้องโชว์ข้อความที่ AI มองเห็นให้ผู้ใช้อ่าน
+    # ไม่เก็บ contact_phone ต่อโพสต์อีกต่อไป — ใช้ข้อมูลติดต่อจากโปรไฟล์ผู้ใช้ (users table) แทน
+    # เพื่อไม่ให้ต้องกรอกซ้ำทุกครั้งที่แจ้งของ และข้อมูลติดต่อสอดคล้องกันทุกโพสต์
     try:
         insert_result = insert_item_direct(
             item_type=item_type,
@@ -121,7 +122,6 @@ async def report_item(
             description=details,
             image_path=storage_image_path,
             location=location,
-            contact_phone=phone,
             embedding=embedding,
             user_id=user_id or None,
         )
@@ -129,14 +129,6 @@ async def report_item(
         # ลบไฟล์ชั่วคราวทิ้งก่อน ไม่ว่าจะ error หรือไม่
         if local_tmp_path and os.path.exists(local_tmp_path):
             os.remove(local_tmp_path)
-
-        # ดักจับ error เฉพาะจาก CHECK constraint "contact_phone_digits_only" ที่ตั้งไว้ใน Supabase
-        # แปลงเป็นข้อความไทยที่เข้าใจง่าย แทนที่จะโยน error ดิบๆ ของฐานข้อมูลกลับไปให้ frontend
-        if "contact_phone_digits_only" in str(e):
-            raise HTTPException(
-                status_code=400,
-                detail="กรุณากรอกเบอร์โทรศัพท์เป็นตัวเลขเท่านั้น (ห้ามมีตัวอักษรหรือสัญลักษณ์ปน)",
-            )
         raise HTTPException(status_code=500, detail="บันทึกประกาศไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")
 
     # 7) ลบไฟล์ชั่วคราวทิ้ง
@@ -166,18 +158,23 @@ async def report_item(
             print(f"[save_match] error: {e}")
 
     # 9) สรุปข้อความกลับไปให้ frontend (จัดรูปประโยคตรง ๆ ไม่ต้องเสีย LLM รอบสุดท้าย)
+    # แนบ matched_item_id (id ของไอเทมฝั่งตรงข้ามที่คล้ายที่สุด) กลับไปด้วย
+    # เพื่อให้ frontend ทำปุ่ม "ดูรายละเอียด" พาไปที่โพสต์นั้นได้เลยทันที ไม่ต้องรอกระดิ่งแจ้งเตือน
+    matched_item_id = None
     if matches:
         best = max(matches, key=lambda x: x.get("score", 0))
         percent = round(best.get("score", 0) * 100)
+        matched_item_id = best.get("id")
         message = (
             f'บันทึกประกาศเรียบร้อยแล้ว พบไอเทมที่คล้ายกัน {len(matches)} รายการ '
             f'ใกล้เคียงที่สุด "{best.get("title") or "ไม่ระบุชื่อ"}" ({percent}%) '
-            f'ระบบแจ้งเตือนเจ้าของอีกฝั่งให้แล้ว'
+            f'กดดูรายละเอียดได้เลย'
         )
     else:
-        message = "บันทึกประกาศเรียบร้อยแล้ว ยังไม่พบไอเทมที่ตรงกัน ระบบจะแจ้งเตือนทันทีถ้ามีการแมทช์เกิดขึ้นภายหลัง"
+        message = "บันทึกประกาศเรียบร้อยแล้ว ยังไม่พบไอเทมที่ตรงกันในตอนนี้ ระบบจะแจ้งเตือนทันทีถ้ามีการแมทช์เกิดขึ้นภายหลัง"
 
     return {
         "message": message,
         "image_url": get_image_url(storage_image_path),
+        "matched_item_id": matched_item_id,
     }

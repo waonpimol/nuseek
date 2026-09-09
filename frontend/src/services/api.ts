@@ -73,6 +73,45 @@ export async function confirmMatch(matchId: string) {
   return await response.json();
 }
 
+export async function claimItem(itemId: string, userId: string) {
+  const formData = new FormData();
+  formData.append("user_id", userId);
+
+  const response = await fetch(`${API}/items/${itemId}/claim`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let detail = "แจ้งเจ้าของโพสต์ไม่สำเร็จ";
+    try {
+      const errBody = await response.json();
+      if (errBody?.detail) detail = errBody.detail;
+    } catch {
+      // ไม่ใช่ JSON ก็ปล่อยข้อความ default ไว้
+    }
+    throw new Error(detail);
+  }
+
+  return await response.json();
+}
+
+export async function confirmClaim(claimId: string, userId: string) {
+  const formData = new FormData();
+  formData.append("user_id", userId);
+
+  const response = await fetch(`${API}/claims/${claimId}/confirm`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error("ยืนยันไม่สำเร็จ");
+  }
+
+  return await response.json();
+}
+
 export async function reportItem(formData: FormData) {
   const response = await fetch(`${API}/report`, {
     method: "POST",

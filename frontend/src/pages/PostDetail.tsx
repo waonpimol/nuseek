@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   Home,
@@ -12,9 +12,13 @@ import {
   ArrowLeft,
   CheckCircle2,
   Menu,
-  X
+  X,
+  Phone,
+  MessageCircle,
+  Link2,
+  AtSign
 } from 'lucide-react';
-import { getItem, confirmMatch } from '../services/api';
+import { getItem, confirmMatch, claimItem, confirmClaim } from '../services/api';
 import { formatRelativeTime, formatFullDate } from '../utils/format';
 import { getPlaceholderImage } from '../utils/placeholder';
 import { useNotifications } from '../hooks/useNotifications';
@@ -23,10 +27,81 @@ import { getAvatarColor, getAvatarInitial } from '../utils/avatar';
 
 const FALLBACK_IMAGE = getPlaceholderImage(600, 400);
 
+// รวมช่องทางติดต่อทั้งหมดจากโปรไฟล์มาแสดงเป็นแถวๆ (โชว์เฉพาะช่องที่มีค่าจริง ไม่มีก็ไม่โชว์)
+function ContactList({
+  phone,
+  lineId,
+  facebookUrl,
+  instagramUsername,
+}: {
+  phone?: string | null;
+  lineId?: string | null;
+  facebookUrl?: string | null;
+  instagramUsername?: string | null;
+}) {
+  const hasAny = phone || lineId || facebookUrl || instagramUsername;
+  if (!hasAny) {
+    return <div style={{ fontSize: '12px', color: '#A0AEC0', marginTop: '2px' }}>ยังไม่ได้เพิ่มช่องทางติดต่อ</div>;
+  }
+
+  const rowStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '12.5px',
+    color: '#4A5568',
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '2px' }}>
+      {phone && (
+        <div style={rowStyle}>
+          <Phone size={12} style={{ color: '#DD6B20' }} />
+          <span>{phone}</span>
+        </div>
+      )}
+      {lineId && (
+        <div style={rowStyle}>
+          <MessageCircle size={12} style={{ color: '#06C755' }} />
+          <span>{lineId}</span>
+        </div>
+      )}
+      {facebookUrl && (
+        <div style={rowStyle}>
+          <Link2 size={12} style={{ color: '#3B5998' }} />
+          <span>{facebookUrl}</span>
+        </div>
+      )}
+      {instagramUsername && (
+        <div style={rowStyle}>
+          <AtSign size={12} style={{ color: '#C13584' }} />
+          <span>{instagramUsername}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PostDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [showNoti, setShowNoti] = useState(false);
+  const bellButtonRef = useRef<HTMLButtonElement>(null);
+  const notifDropdownRef = useRef<HTMLDivElement>(null);
+  const [arrowLeft, setArrowLeft] = useState<number | null>(null);
+
+  // คำนวณตำแหน่งลูกศรให้ชี้ตรงกระดิ่งเสมอ ไม่ว่ากล่องแจ้งเตือนจะอยู่ตำแหน่งไหน
+  // (มือถือ: กล่องอยู่กึ่งกลางจอ / จอใหญ่: กล่องยึดกับกระดิ่ง ตำแหน่งไม่เท่ากัน คำนวณสดเลยแม่นกว่า)
+  useEffect(() => {
+    if (showNoti && bellButtonRef.current && notifDropdownRef.current) {
+      const bellRect = bellButtonRef.current.getBoundingClientRect();
+      const dropdownRect = notifDropdownRef.current.getBoundingClientRect();
+      const bellCenterX = bellRect.left + bellRect.width / 2;
+      let left = bellCenterX - dropdownRect.left - 8;
+      left = Math.max(12, Math.min(left, dropdownRect.width - 28));
+      setArrowLeft(left);
+    }
+  }, [showNoti]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications();
 
@@ -35,6 +110,9 @@ export default function PostDetail() {
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [confirmingPost, setConfirmingPost] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  const [claimed, setClaimed] = useState(false);
+  const [confirmingReceipt, setConfirmingReceipt] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -93,6 +171,53 @@ export default function PostDetail() {
     }
   };
 
+  // ปุ่ม "ใช่ของฉัน" — ใช้ตอนผู้ใช้เจอโพสต์ "ของที่พบ" เองผ่านการค้นหาด้วยรูป (ไม่ผ่านระบบแมทช์อัตโนมัติ)
+  // โชว์เฉพาะโพสต์ประเภท "ของที่พบ" ที่ยังไม่จบเคส, ไม่ใช่โพสต์ของตัวเอง และยังไม่มีใครอ้างสิทธิ์ค้างอยู่
+  // (ถ้ามีคนอ้างสิทธิ์ไปแล้ว จะโชว์ปุ่ม "ได้รับของคืนแล้ว" แทน กันสับสนว่าต้องกดปุ่มไหน)
+  const showClaimButton =
+    !!currentUserId &&
+    post?.type === "found" &&
+    post?.status !== "matched" &&
+    post?.user_id !== currentUserId &&
+    !post?.pending_claim_id;
+
+  const handleClaim = async () => {
+    if (!id || !currentUserId) return;
+    setClaiming(true);
+    try {
+      await claimItem(id, currentUserId);
+      setClaimed(true);
+      alert("แจ้งเจ้าของโพสต์เรียบร้อยแล้ว! เดี๋ยวเขาจะติดต่อกลับไปนะ รอเจ้าของกดยืนยัน \"ได้รับของแล้ว\" อีกทีเคสจะปิดสมบูรณ์");
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message || "แจ้งเจ้าของโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง");
+    } finally {
+      setClaiming(false);
+    }
+  };
+
+  // ปุ่ม "ได้รับของแล้ว/คืนของแล้ว" — กดได้ทั้ง 2 ฝ่าย (เจ้าของโพสต์ที่พบของ และผู้อ้างสิทธิ์ที่ทำของหาย)
+  // ใครกดก่อนก็ปิดเคสได้เลย ไม่ต้องรอให้อีกฝั่งกดด้วย (แค่ยืนยันว่ามีการส่งคืนของกันจริงแล้ว)
+  // กดแล้วถึงจะปิดเคสจริง: เปลี่ยนเป็น matched, หายจากหน้าประกาศทั่วไป, ไปนับใน KPI หน้าโปรไฟล์แทน
+  const isPostOwner = !!currentUserId && post?.user_id === currentUserId;
+  const isClaimant = !!currentUserId && post?.pending_claim_claimant_id === currentUserId;
+  const showConfirmReceiptButton = !!post?.pending_claim_id && (isPostOwner || isClaimant);
+
+  const handleConfirmReceipt = async () => {
+    if (!post?.pending_claim_id || !currentUserId) return;
+    setConfirmingReceipt(true);
+    try {
+      await confirmClaim(post.pending_claim_id, currentUserId);
+      alert("ยืนยันเรียบร้อยแล้ว เคสนี้ปิดแล้วนะ 🎉");
+      navigate("/allposts");
+    } catch (err) {
+      console.error(err);
+      alert("ยืนยันไม่สำเร็จ ลองใหม่อีกครั้ง");
+    } finally {
+      setConfirmingReceipt(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 font-kanit">
 
@@ -125,7 +250,7 @@ export default function PostDetail() {
           <div className="flex items-center gap-2 md:gap-4">
             <div className="relative">
               <button
-                onClick={() => setShowNoti(!showNoti)}
+                ref={bellButtonRef} onClick={() => setShowNoti(!showNoti)}
                 className={`p-2 rounded-full transition relative ${showNoti ? "text-orange-500 bg-orange-50" : "text-gray-600 hover:text-orange-500 hover:bg-gray-100"
                   }`}
               >
@@ -136,14 +261,14 @@ export default function PostDetail() {
               </button>
 
               {showNoti && (
-                <div className="absolute top-12 right-0 sm:right-auto sm:-right-16 w-[92vw] max-w-[360px] bg-white rounded-2xl border border-gray-200 shadow-xl z-50 font-kanit">
-                  <div className="hidden sm:block absolute -top-2 right-[73px] w-4 h-4 bg-white border-t border-l border-gray-200 rotate-45 z-10"></div>
+                <div ref={notifDropdownRef} className="fixed sm:absolute top-16 sm:top-12 left-1/2 -translate-x-1/2 w-[80vw] max-w-[300px] sm:translate-x-0 sm:left-auto sm:-right-16 sm:w-[92vw] sm:max-w-[360px] bg-white rounded-2xl border border-gray-200 shadow-xl z-50 font-kanit">
+                  <div className="absolute -top-2 w-4 h-4 bg-white border-t border-l border-gray-200 rotate-45 z-10" style={{ left: arrowLeft !== null ? `${arrowLeft}px` : undefined, right: arrowLeft !== null ? undefined : '73px' }}></div>
                   <div className="relative z-20 bg-white rounded-2xl overflow-hidden">
-                    <div className="flex justify-between items-center px-5 py-3.5 border-b border-gray-100">
-                      <span className="font-bold text-gray-800 text-sm">การแจ้งเตือน</span>
-                      <button onClick={markAllRead} className="text-xs font-semibold text-orange-500 hover:underline">อ่านทั้งหมด</button>
+                    <div className="flex justify-between items-center px-3 py-2.5 sm:px-5 sm:py-3.5 border-b border-gray-100">
+                      <span className="font-bold text-gray-800 text-xs sm:text-sm">การแจ้งเตือน</span>
+                      <button onClick={markAllRead} className="text-[10px] sm:text-xs font-semibold text-orange-500 hover:underline">อ่านทั้งหมด</button>
                     </div>
-                    <div className="max-h-[320px] overflow-y-auto divide-y divide-gray-100">
+                    <div className="max-h-[260px] sm:max-h-[320px] overflow-y-auto divide-y divide-gray-100">
                       {notifications.length === 0 && (
                         <div className="p-6 text-center text-xs text-gray-400">ยังไม่มีแจ้งเตือน</div>
                       )}
@@ -152,19 +277,19 @@ export default function PostDetail() {
                           key={n.id}
                           onClick={() => {
                             markOneRead(n.id);
-                            if (n.matched_item_id) navigate(`/postdetail/${n.matched_item_id}`);
+                            const targetItemId = n.matched_item_id || n.item_id; if (targetItemId) navigate(`/postdetail/${targetItemId}`);
                           }}
-                          className={`flex gap-3 p-4 hover:bg-gray-50 transition cursor-pointer text-left ${n.is_read ? "" : "bg-orange-50/40"}`}
+                          className={`flex gap-2 p-2.5 sm:gap-3 sm:p-4 hover:bg-gray-50 transition cursor-pointer text-left ${n.is_read ? "" : "bg-orange-50/40"}`}
                         >
-                          <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <circle cx="12" cy="12" r="9" />
                               <path d="M8 12l3 3 5-6" />
                             </svg>
                           </div>
                           <div className="flex flex-col gap-0.5 flex-1">
-                            <p className="text-[11px] text-gray-600 leading-normal">{n.message}</p>
-                            <span className="text-[10px] text-gray-400">{formatRelativeTime(n.created_at)}</span>
+                            <p className="text-[10px] sm:text-[11px] text-gray-600 leading-normal">{n.message}</p>
+                            <span className="text-[9px] sm:text-[10px] text-gray-400">{formatRelativeTime(n.created_at)}</span>
                           </div>
                         </div>
                       ))}
@@ -189,15 +314,15 @@ export default function PostDetail() {
 
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-gray-100 bg-white px-4 py-2 flex flex-col">
-            <Link to="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 py-3 text-gray-700 hover:text-orange-500 border-b border-gray-50">
+            <Link to="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2.5 py-2.5 text-sm text-gray-700 hover:text-orange-500 border-b border-gray-50">
               <Home size={20} />
               หน้าแรก
             </Link>
-            <Link to="/searchbyimage" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 py-3 text-gray-700 hover:text-orange-500 border-b border-gray-50">
+            <Link to="/searchbyimage" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2.5 py-2.5 text-sm text-gray-700 hover:text-orange-500 border-b border-gray-50">
               <ImageIcon size={20} />
               ค้นหาจากรูป
             </Link>
-            <Link to="/allposts" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 py-3 text-gray-700 hover:text-orange-500">
+            <Link to="/allposts" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2.5 py-2.5 text-sm text-gray-700 hover:text-orange-500">
               <FileText size={20} />
               ประกาศทั้งหมด
             </Link>
@@ -281,6 +406,58 @@ export default function PostDetail() {
                 </div>
               )}
 
+              {/* ปุ่ม "ใช่ของฉัน" — สำหรับคนที่มาเจอโพสต์นี้เองผ่านการค้นหาด้วยรูป ไม่ได้มาจากระบบแมทช์อัตโนมัติ */}
+              {showClaimButton && !claimed && (
+                <div style={styles.matchBox}>
+                  <div style={styles.matchBoxText}>
+                    <CheckCircle2 size={20} style={{ color: '#16A34A', flexShrink: 0 }} />
+                    <span>คิดว่าสิ่งของนี้เป็นของคุณใช่ไหม? กดยืนยันเพื่อแจ้งให้เจ้าของโพสต์ติดต่อกลับ</span>
+                  </div>
+                  <button
+                    onClick={handleClaim}
+                    disabled={claiming}
+                    style={styles.confirmMatchBtn}
+                  >
+                    {claiming ? "กำลังส่ง..." : "ใช่ของฉัน แจ้งเจ้าของโพสต์"}
+                  </button>
+                </div>
+              )}
+
+              {showClaimButton && claimed && (
+                <div style={{ ...styles.matchBox, backgroundColor: '#F0FDF4' }}>
+                  <div style={styles.matchBoxText}>
+                    <CheckCircle2 size={20} style={{ color: '#16A34A', flexShrink: 0 }} />
+                    <span>แจ้งเจ้าของโพสต์แล้ว รอเขาติดต่อกลับมาได้เลย</span>
+                  </div>
+                </div>
+              )}
+
+              {/* ปุ่ม "ได้รับของแล้ว" — เจ้าของโพสต์เท่านั้นที่เห็น หลังมีคนกด "ใช่ของฉัน" มา
+                  กดปุ่มนี้แล้วถึงจะปิดเคสจริง (เปลี่ยนเป็น matched, หายจากหน้าประกาศทั่วไป) */}
+              {showConfirmReceiptButton && (
+                <div style={styles.matchBox}>
+                  <div style={styles.matchBoxText}>
+                    <CheckCircle2 size={20} style={{ color: '#16A34A', flexShrink: 0 }} />
+                    <span>
+                      {isPostOwner
+                        ? "มีคนแจ้งว่าของชิ้นนี้เป็นของเขา ถ้าส่งคืนของเรียบร้อยแล้ว กดยืนยันเพื่อปิดเคสได้เลย"
+                        : "ถ้าได้รับของคืนจากเจ้าของโพสต์เรียบร้อยแล้ว กดยืนยันเพื่อปิดเคสได้เลย"}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleConfirmReceipt}
+                    disabled={confirmingReceipt}
+                    style={styles.confirmMatchBtn}
+                  >
+                    {confirmingReceipt
+                      ? "กำลังยืนยัน..."
+                      : isPostOwner
+                        ? "ส่งคืนของแล้ว ปิดเคสนี้"
+                        : "ได้รับของคืนแล้ว ปิดเคสนี้"}
+                  </button>
+                </div>
+              )}
+
               {/* ส่วนหัวข้อรายละเอียด */}
               <div style={styles.sectionHeader}>
                 <Info size={18} style={{ color: '#1A202C' }} />
@@ -311,16 +488,58 @@ export default function PostDetail() {
                 )}
                 <div style={styles.reporterInfo}>
                   <div style={styles.reporterNameText}>{post.reporter_name || "ผู้ประกาศ"}</div>
-                  <div style={styles.reporterPhoneText}>
-                    เบอร์ <span style={{ color: '#4A5568', fontWeight: 600, marginLeft: '4px' }}>
-                      {post.contact_phone || "ไม่ระบุ"}
-                    </span>
-                  </div>
+                  <ContactList
+                    phone={post.reporter_phone}
+                    lineId={post.reporter_line_id}
+                    facebookUrl={post.reporter_facebook_url}
+                    instagramUsername={post.reporter_instagram_username}
+                  />
                   <div style={styles.createdAtText}>
                     ประกาศเมื่อ {post.created_at ? formatFullDate(post.created_at) : "-"}
                   </div>
                 </div>
               </div>
+
+              {/* ส่วนแสดง "อีกฝั่ง" ที่แมทช์กันแล้ว (โชว์ก็ต่อเมื่อยืนยันแมทช์เรียบร้อยแล้วเท่านั้น) */}
+              {post.matched_with && (
+                <>
+                  <div style={styles.sectionHeader}>
+                    <CheckCircle2 size={18} style={{ color: '#16A34A' }} />
+                    <span style={styles.sectionTitleText}>
+                      {post.type === "lost" ? "ผู้พบสิ่งของนี้" : "เจ้าของสิ่งของนี้"}
+                    </span>
+                  </div>
+
+                  <div style={{ ...styles.reporterCard, backgroundColor: '#F0FDF4' }}>
+                    {post.matched_with.reporter_avatar_url ? (
+                      <img
+                        src={post.matched_with.reporter_avatar_url}
+                        alt={post.matched_with.reporter_name}
+                        style={{ ...styles.avatarCircle, objectFit: 'cover' as const }}
+                      />
+                    ) : (
+                      <div style={{ ...styles.avatarCircle, backgroundColor: getAvatarColor(post.matched_with.reporter_name) }}>
+                        <span style={styles.avatarInitial}>{getAvatarInitial(post.matched_with.reporter_name)}</span>
+                      </div>
+                    )}
+                    <div style={styles.reporterInfo}>
+                      <div style={styles.reporterNameText}>{post.matched_with.reporter_name}</div>
+                      <ContactList
+                        phone={post.matched_with.reporter_phone}
+                        lineId={post.matched_with.reporter_line_id}
+                        facebookUrl={post.matched_with.reporter_facebook_url}
+                        instagramUsername={post.matched_with.reporter_instagram_username}
+                      />
+                      <div
+                        style={{ ...styles.createdAtText, color: '#166534', cursor: 'pointer', textDecoration: 'underline' }}
+                        onClick={() => navigate(`/postdetail/${post.matched_with.item_id}`)}
+                      >
+                        ดูโพสต์ "{post.matched_with.title}" ของอีกฝั่ง
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
 
             </div>
           )}
