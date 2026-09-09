@@ -14,36 +14,36 @@
 
 ## Setup
 
-\`\`\`bash
+```bash
 git clone https://github.com/waonpimol/nuseek.git
 cd nuseek
-\`\`\`
+```
 
 **Backend:**
-\`\`\`bash
+```bash
 cd backend
 uv sync
-\`\`\`
+```
 สร้าง `backend/nuseek/.env`:
-\`\`\`dotenv
+```dotenv
 GOOGLE_GENAI_USE_ENTERPRISE=0
 GOOGLE_API_KEY=<gemini key>
 SUPABASE_URL=<supabase url>
 SUPABASE_KEY=<service_role key>
-\`\`\`
+```
 
 **Frontend:**
-\`\`\`bash
+```bash
 cd frontend
 npm install
-\`\`\`
+```
 ใส่ Supabase URL + anon key ใน `frontend/src/services/supabaseClient.ts`
 
 **Supabase:** สร้างตาราง `users`, `items`, `matches`, `claims`, `notifications` + เปิด extension `vector` + สร้าง storage bucket `items-images` และ `avatars` (public)
 
 ## รันโปรเจกต์ (2 terminal พร้อมกัน)
 
-\`\`\`bash
+```bash
 # Terminal 1 — backend
 cd backend
 uv run uvicorn app:app --reload --host 0.0.0.0
@@ -51,8 +51,9 @@ uv run uvicorn app:app --reload --host 0.0.0.0
 # Terminal 2 — frontend
 cd frontend
 npm run dev
-\`\`\`
+```
 
 เปิด `http://localhost:5173`
 
 ---
+
