@@ -39,8 +39,6 @@ npm install
 ```
 ใส่ Supabase URL + anon key ใน `frontend/src/services/supabaseClient.ts`
 
-**Supabase:** สร้างตาราง `users`, `items`, `matches`, `claims`, `notifications` + เปิด extension `vector` + สร้าง storage bucket `items-images` และ `avatars` (public)
-
 ## รันโปรเจกต์ (2 terminal พร้อมกัน)
 
 ```bash
