@@ -20,6 +20,7 @@ import { formatRelativeTime } from "../utils/format";
 import { getPlaceholderImage } from "../utils/placeholder";
 import { useNotifications } from "../hooks/useNotifications";
 import { getAvatarColor, getAvatarInitial } from "../utils/avatar";
+import ResultModal from "../components/ResultModal";
 
 interface UserProfile {
   display_name: string;
@@ -97,6 +98,8 @@ export default function Profile() {
   }, [showNoti]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  // แจ้งผลลัพธ์ error ด้วย modal ในแอปเอง แทน alert() ของเบราว์เซอร์ ที่โชว์ "localhost บอกว่า..."
+  const [resultModal, setResultModal] = useState<{ success: boolean; message: string } | null>(null);
   const [myItems, setMyItems] = useState<any[]>([]);
   const [itemsLoading, setItemsLoading] = useState(true);
   const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications();
@@ -167,14 +170,14 @@ export default function Profile() {
 
       navigate("/login");
     } catch (error: any) {
-      alert("เกิดข้อผิดพลาด: " + error.message);
+      setResultModal({ success: false, message: "เกิดข้อผิดพลาด: " + error.message });
     } finally {
       setShowLogoutModal(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 antialiased">
+    <div className="min-h-screen bg-cream antialiased">
 
       {/* ================= Navbar ================= */}
 
@@ -442,24 +445,28 @@ export default function Profile() {
                       }}
                     />
                     {item.status !== "matched" && (
-                      <div className="hidden sm:flex absolute top-2 left-2 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-full items-center gap-1.5 shadow-sm text-xs font-semibold">
+                      <div className={`hidden sm:flex absolute top-2 left-2 px-2.5 py-1 rounded-full items-center gap-1.5 shadow-sm text-xs font-semibold ${item.type === "lost" ? "bg-red-100" : "bg-sky-100"}`}>
                         <span className={`w-2 h-2 rounded-full ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`} />
-                        {typeLabel(item.type)}
+                        <span className={item.type === "lost" ? "text-red-500" : "text-sky-500"}>{typeLabel(item.type)}</span>
                       </div>
                     )}
                     {item.status === "matched" && (
-                      <div className="hidden sm:block absolute top-2 left-2 bg-green-500 text-white px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm">
-                        พบเจ้าของแล้ว
+                      <div className="hidden sm:flex absolute top-2 left-2 bg-green-100 px-2.5 py-1 rounded-full items-center gap-1.5 text-xs font-semibold shadow-sm">
+                        <span className="w-2 h-2 rounded-full bg-green-500" />
+                        <span className="text-green-500">พบเจ้าของแล้ว</span>
                       </div>
                     )}
                   </div>
                   <div className="p-3 sm:p-4 flex flex-col justify-center sm:justify-start gap-1 sm:space-y-2 min-w-0">
                     {item.status === "matched" ? (
-                      <div className="sm:hidden text-[11px] font-semibold text-green-600">พบเจ้าของแล้ว</div>
+                      <div className="sm:hidden inline-flex w-fit items-center gap-1.5 bg-green-100 px-2 py-0.5 rounded-full text-[11px] font-semibold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        <span className="text-green-500">พบเจ้าของแล้ว</span>
+                      </div>
                     ) : (
-                      <div className="sm:hidden flex items-center gap-1.5 text-[11px] font-semibold">
-                        <span className={`w-2 h-2 rounded-full ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`} />
-                        <span className={item.type === "lost" ? "text-red-600" : "text-sky-600"}>{typeLabel(item.type)}</span>
+                      <div className={`sm:hidden inline-flex w-fit items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${item.type === "lost" ? "bg-red-100" : "bg-sky-100"}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${item.type === "lost" ? "bg-red-600" : "bg-sky-500"}`} />
+                        <span className={item.type === "lost" ? "text-red-500" : "text-sky-500"}>{typeLabel(item.type)}</span>
                       </div>
                     )}
                     <h4 className="text-sm sm:text-base font-semibold text-gray-800 line-clamp-1">{item.title || "ไม่ระบุชื่อสิ่งของ"}</h4>
@@ -530,6 +537,15 @@ export default function Profile() {
           </div>
         </div>
       )}
+
+      <ResultModal
+        open={!!resultModal}
+        success={resultModal?.success ?? true}
+        title="เกิดข้อผิดพลาด"
+        message={resultModal?.message || ""}
+        confirmLabel="ตกลง"
+        onConfirm={() => setResultModal(null)}
+      />
 
     </div>
   );

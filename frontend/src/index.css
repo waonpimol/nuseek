@@ -2,6 +2,37 @@
 
 @import "tailwindcss";
 
+@theme {
+  --color-cream: #FBF7F0;
+
+  --color-orange-50: #FDF3E1;
+  --color-orange-100: #FAE6C2;
+  --color-orange-200: #F5CD88;
+  --color-orange-300: #EFB453;
+  --color-orange-400: #E8A03A;
+  --color-orange-500: #E08A2C;
+  --color-orange-600: #C36F1D;
+  --color-orange-700: #9C5716;
+
+  --color-rose-50: #FBEDEA;
+  --color-rose-100: #F5CFC5;
+  --color-rose-200: #EBA99B;
+  --color-rose-300: #DF8171;
+  --color-rose-400: #D15E4C;
+  --color-rose-500: #C1443C;
+  --color-rose-600: #A23530;
+  --color-rose-700: #82271F;
+
+  --color-emerald-50: #E8F4EE;
+  --color-emerald-100: #C6E5D5;
+  --color-emerald-200: #97CEB0;
+  --color-emerald-300: #69B78C;
+  --color-emerald-400: #479971;
+  --color-emerald-500: #2F7A5E;
+  --color-emerald-600: #235F49;
+  --color-emerald-700: #1A4837;
+}
+
 body {
     font-family: "Kanit", sans-serif;
 }

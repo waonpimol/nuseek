@@ -13,6 +13,7 @@ import {
   RefreshCw,
   MapPin,
   Menu,
+  Clock,
   X
 } from "lucide-react";
 import { searchByImage } from "../services/api";
@@ -153,8 +154,6 @@ export default function SearchByImage() {
                               <circle cx="12" cy="12" r="9" />
                               <path d="M8 12l3 3 5-6" />
                             </svg>
-                          </div><div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
-                            <span className="text-orange-500 text-xs sm:text-sm">✨</span>
                           </div>
                           <div className="flex flex-col gap-0.5 flex-1">
                             <p className="text-[10px] sm:text-[11px] text-gray-600 leading-normal">{n.message}</p>
@@ -323,9 +322,9 @@ export default function SearchByImage() {
                   <div
                     key={item.id}
                     onClick={() => navigate(`/postdetail/${item.id}`)}
-                    className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md border border-gray-100 transition-all flex flex-col cursor-pointer"
+                    className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md border border-gray-100 transition-all flex flex-row sm:flex-col cursor-pointer"
                   >
-                    <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+                    <div className="relative w-24 h-24 sm:w-full sm:aspect-[4/3] flex-shrink-0 overflow-hidden bg-gray-100">
                       <img
                         src={item.image_url || FALLBACK_IMAGE}
                         alt={item.title}
@@ -334,22 +333,30 @@ export default function SearchByImage() {
                           (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
                         }}
                       />
-                      <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full flex items-center gap-2 shadow-sm border border-gray-100">
-                        <span className={`w-2.5 h-2.5 rounded-full ${item.type === "lost" ? "bg-rose-500" : "bg-emerald-500"}`} />
-                        <span className="text-xs font-semibold text-gray-700">{typeLabel(item.type)}</span>
+                      <div className={`hidden sm:flex absolute top-3 left-3 px-3 py-1.5 rounded-full items-center gap-2 shadow-sm ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
+                        <span className="w-2.5 h-2.5 rounded-full bg-white" />
+                        <span className="text-xs font-semibold text-white">{typeLabel(item.type)}</span>
                       </div>
-                      <div className="absolute top-3 right-3 bg-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">
+                      <div className="hidden sm:block absolute top-3 right-3 bg-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">
                         {Math.round((item.score || 0) * 100)}%
                       </div>
                     </div>
 
-                    <div className="p-4 space-y-2">
-                      <h4 className="text-sm font-semibold text-gray-800 line-clamp-2">
+                    <div className="p-3 sm:p-4 flex-1 flex flex-col justify-center sm:justify-start gap-1.5 sm:space-y-2 min-w-0">
+                      <div className={`flex sm:hidden w-fit items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${item.type === "lost" ? "bg-red-100" : "bg-sky-100"}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${item.type === "lost" ? "bg-red-600" : "bg-sky-600"}`} />
+                        <span className={item.type === "lost" ? "text-red-700" : "text-sky-700"}>{typeLabel(item.type)}</span>
+                      </div>
+                      <h4 className="text-sm font-semibold text-gray-800 line-clamp-1 sm:line-clamp-2">
                         {item.title || "ไม่ระบุชื่อสิ่งของ"}
                       </h4>
-                      <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                        <MapPin size={13} className="text-gray-400" />
-                        <span>{item.location || "ไม่ระบุสถานที่"}</span>
+                      <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-gray-500 truncate">
+                        <MapPin size={13} className="text-gray-400 flex-shrink-0" />
+                        <span className="truncate">{item.location || "ไม่ระบุสถานที่"}</span>
+                      </div>
+                      <div className="hidden sm:flex items-center gap-1.5 text-xs text-gray-400">
+                        <Clock size={13} className="flex-shrink-0" />
+                        <span>{formatRelativeTime(item.created_at)}</span>
                       </div>
                     </div>
                   </div>

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../services/supabaseClient";
 import { isValidEmail, getPasswordChecks, isPasswordStrong } from "../utils/validation";
+import ResultModal from "../components/ResultModal";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -22,6 +23,8 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  // แจ้งผลลัพธ์ต่างๆ ด้วย modal ในแอปเอง แทน alert() ของเบราว์เซอร์ ที่โชว์ "localhost บอกว่า..."
+  const [resultModal, setResultModal] = useState<{ success: boolean; message: string; goToLogin?: boolean } | null>(null);
 
   const passwordChecks = getPasswordChecks(password);
 
@@ -31,17 +34,17 @@ export default function Signup() {
     e.preventDefault();
 
     if (!isValidEmail(email)) {
-      alert("กรุณากรอกอีเมลให้ถูกต้อง เช่น example@email.com");
+      setResultModal({ success: false, message: "กรุณากรอกอีเมลให้ถูกต้อง เช่น example@email.com" });
       return;
     }
 
     if (!isPasswordStrong(password)) {
-      alert("รหัสผ่านยังไม่ปลอดภัยพอ กรุณาทำตามเงื่อนไขที่แสดงไว้ใต้ช่องรหัสผ่านให้ครบ");
+      setResultModal({ success: false, message: "รหัสผ่านยังไม่ปลอดภัยพอ กรุณาทำตามเงื่อนไขที่แสดงไว้ใต้ช่องรหัสผ่านให้ครบ" });
       return;
     }
 
     if (password !== confirmPassword) {
-      alert("รหัสผ่านไม่ตรงกัน");
+      setResultModal({ success: false, message: "รหัสผ่านไม่ตรงกัน" });
       return;
     }
 
@@ -76,11 +79,10 @@ export default function Signup() {
 
         if (profileError) throw profileError;
 
-        alert("สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบอีเมลยืนยัน (หากเปิดใช้งาน)");
-        navigate("/login");
+        setResultModal({ success: true, message: "สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบอีเมลยืนยัน (หากเปิดใช้งาน)", goToLogin: true });
       }
     } catch (error: any) {
-      alert("เกิดข้อผิดพลาด: " + error.message);
+      setResultModal({ success: false, message: "เกิดข้อผิดพลาด: " + error.message });
     } finally {
       setLoading(false);
     }
@@ -234,6 +236,19 @@ export default function Signup() {
         </p>
 
       </div>
+
+      <ResultModal
+        open={!!resultModal}
+        success={resultModal?.success ?? true}
+        title={resultModal?.success ? "สมัครสมาชิกสำเร็จ" : "เกิดข้อผิดพลาด"}
+        message={resultModal?.message || ""}
+        confirmLabel="ตกลง"
+        onConfirm={() => {
+          const shouldGoToLogin = resultModal?.goToLogin;
+          setResultModal(null);
+          if (shouldGoToLogin) navigate("/login");
+        }}
+      />
     </div>
   );
 }

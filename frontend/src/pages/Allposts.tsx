@@ -31,22 +31,22 @@ export default function AllPosts() {
 	const [searchQuery, setSearchQuery] = useState<string>("");
 	const [selectedLocation, setSelectedLocation] = useState<string>("all");
 	const [showNoti, setShowNoti] = useState(false);
-  const bellButtonRef = useRef<HTMLButtonElement>(null);
-  const notifDropdownRef = useRef<HTMLDivElement>(null);
-  const [arrowLeft, setArrowLeft] = useState<number | null>(null);
+	const bellButtonRef = useRef<HTMLButtonElement>(null);
+	const notifDropdownRef = useRef<HTMLDivElement>(null);
+	const [arrowLeft, setArrowLeft] = useState<number | null>(null);
 
-  // คำนวณตำแหน่งลูกศรให้ชี้ตรงกระดิ่งเสมอ ไม่ว่ากล่องแจ้งเตือนจะอยู่ตำแหน่งไหน
-  // (มือถือ: กล่องอยู่กึ่งกลางจอ / จอใหญ่: กล่องยึดกับกระดิ่ง ตำแหน่งไม่เท่ากัน คำนวณสดเลยแม่นกว่า)
-  useEffect(() => {
-    if (showNoti && bellButtonRef.current && notifDropdownRef.current) {
-      const bellRect = bellButtonRef.current.getBoundingClientRect();
-      const dropdownRect = notifDropdownRef.current.getBoundingClientRect();
-      const bellCenterX = bellRect.left + bellRect.width / 2;
-      let left = bellCenterX - dropdownRect.left - 8;
-      left = Math.max(12, Math.min(left, dropdownRect.width - 28));
-      setArrowLeft(left);
-    }
-  }, [showNoti]);
+	// คำนวณตำแหน่งลูกศรให้ชี้ตรงกระดิ่งเสมอ ไม่ว่ากล่องแจ้งเตือนจะอยู่ตำแหน่งไหน
+	// (มือถือ: กล่องอยู่กึ่งกลางจอ / จอใหญ่: กล่องยึดกับกระดิ่ง ตำแหน่งไม่เท่ากัน คำนวณสดเลยแม่นกว่า)
+	useEffect(() => {
+		if (showNoti && bellButtonRef.current && notifDropdownRef.current) {
+			const bellRect = bellButtonRef.current.getBoundingClientRect();
+			const dropdownRect = notifDropdownRef.current.getBoundingClientRect();
+			const bellCenterX = bellRect.left + bellRect.width / 2;
+			let left = bellCenterX - dropdownRect.left - 8;
+			left = Math.max(12, Math.min(left, dropdownRect.width - 28));
+			setArrowLeft(left);
+		}
+	}, [showNoti]);
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 	const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications();
 
@@ -99,7 +99,7 @@ export default function AllPosts() {
 	});
 
 	return (
-		<div className="min-h-screen bg-gray-50 antialiased">
+		<div className="min-h-screen bg-cream antialiased">
 
 			{/* ================= Navbar ================= */}
 			<nav className="bg-white shadow-sm border-b border-gray-300 relative">
@@ -238,7 +238,7 @@ export default function AllPosts() {
 						<div className="flex bg-gray-100 p-1 sm:p-1.5 rounded-xl gap-1">
 							{["ทั้งหมด", "ของหาย", "ของที่พบ"].map((tab) => {
 								const getActiveColors = () => {
-									if (tab === "ของหาย") return "bg-rose-500 text-white shadow-sm";
+									if (tab === "ของหาย") return "bg-red-500 text-white shadow-sm";
 									if (tab === "ของที่พบ") return "bg-sky-500 text-white shadow-sm";
 									return "bg-orange-500 text-white shadow-sm";
 								};
@@ -336,10 +336,10 @@ export default function AllPosts() {
 									/>
 
 									{/* ป้ายประเภท: โชว์ทับรูปเฉพาะจอใหญ่ (รูปเล็กบนมือถือไม่พอที่ใส่ป้าย) */}
-									<div className="hidden sm:flex absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full items-center gap-2 shadow-sm border border-gray-100 select-none">
-										<span className={`w-2.5 h-2.5 rounded-full ${post.type === "lost" ? "bg-rose-500" : "bg-sky-500"
-											}`} />
-										<span className="text-xs font-semibold text-gray-700 tracking-wide">
+									<div className={`hidden sm:flex absolute top-3 left-3 px-3 py-1.5 rounded-full items-center gap-2 shadow-sm select-none ${post.type === "lost" ? "bg-red-100" : "bg-sky-100"
+										}`}>
+										<span className={`w-2.5 h-2.5 rounded-full ${post.type === "lost" ? "bg-red-500" : "bg-sky-500"}`} />
+										<span className={`text-xs font-semibold tracking-wide ${post.type === "lost" ? "text-red-500" : "text-sky-500"}`}>
 											{typeLabel(post.type)}
 										</span>
 									</div>
@@ -349,9 +349,9 @@ export default function AllPosts() {
 								<div className="p-3 sm:p-5 flex-1 flex flex-col justify-center sm:justify-between gap-1.5 sm:gap-4 min-w-0">
 									<div className="space-y-1 sm:space-y-2">
 										{/* ป้ายประเภทแบบข้อความเล็ก โชว์เฉพาะมือถือ (แทนป้ายทับรูป) */}
-										<div className="flex sm:hidden items-center gap-1.5 text-[11px] font-semibold">
-											<span className={`w-2 h-2 rounded-full ${post.type === "lost" ? "bg-rose-500" : "bg-sky-500"}`} />
-											<span className={post.type === "lost" ? "text-rose-600" : "text-sky-600"}>{typeLabel(post.type)}</span>
+										<div className={`flex sm:hidden w-fit items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${post.type === "lost" ? "bg-red-100" : "bg-sky-100"}`}>
+											<span className={`w-1.5 h-1.5 rounded-full ${post.type === "lost" ? "bg-red-500" : "bg-sky-500"}`} />
+											<span className={post.type === "lost" ? "text-red-500" : "text-sky-500"}>{typeLabel(post.type)}</span>
 										</div>
 										<h3 className="text-sm sm:text-base font-semibold text-gray-800 line-clamp-1 sm:line-clamp-2 sm:pt-1 group-hover:text-orange-500 transition">
 											{post.title || "ไม่ระบุชื่อสิ่งของ"}

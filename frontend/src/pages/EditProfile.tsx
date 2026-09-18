@@ -17,6 +17,7 @@ import {
 import { supabase } from "../services/supabaseClient";
 import { useNotifications } from "../hooks/useNotifications";
 import { formatRelativeTime } from "../utils/format";
+import ResultModal from "../components/ResultModal";
 
 // สีคงที่ตามชื่อ (hash) — คนเดิมได้สีเดิมเสมอ ไม่ต้องเก็บสีลง DB เพิ่ม
 const getAvatarColor = (name: string) => {
@@ -105,6 +106,8 @@ export default function EditProfile() {
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 	const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications();
 	const [showLogoutModal, setShowLogoutModal] = useState(false);
+	// แจ้งผลลัพธ์ต่างๆ ด้วย modal ในแอปเอง แทน alert() ของเบราว์เซอร์ ที่โชว์ "localhost บอกว่า..."
+	const [resultModal, setResultModal] = useState<{ success: boolean; message: string; goToProfile?: boolean } | null>(null);
 
 
 	// 1. ดึงข้อมูลผู้ใช้ปัจจุบันมาเติมในฟอร์ม
@@ -154,12 +157,12 @@ export default function EditProfile() {
 		if (!file || !userId) return;
 
 		if (!file.type.startsWith("image/")) {
-			alert("กรุณาเลือกไฟล์รูปภาพเท่านั้น");
+			setResultModal({ success: false, message: "กรุณาเลือกไฟล์รูปภาพเท่านั้น" });
 			return;
 		}
 
 		if (file.size > 5 * 1024 * 1024) {
-			alert("ไฟล์รูปต้องมีขนาดไม่เกิน 5MB");
+			setResultModal({ success: false, message: "ไฟล์รูปต้องมีขนาดไม่เกิน 5MB" });
 			return;
 		}
 
@@ -189,7 +192,7 @@ export default function EditProfile() {
 
 			setAvatarUrl(newAvatarUrl);
 		} catch (error: any) {
-			alert("อัปโหลดรูปไม่สำเร็จ: " + error.message);
+			setResultModal({ success: false, message: "อัปโหลดรูปไม่สำเร็จ: " + error.message });
 		} finally {
 			setUploadingAvatar(false);
 			if (fileInputRef.current) fileInputRef.current.value = "";
@@ -211,7 +214,7 @@ export default function EditProfile() {
 
 			setAvatarUrl(null);
 		} catch (error: any) {
-			alert("ลบรูปไม่สำเร็จ: " + error.message);
+			setResultModal({ success: false, message: "ลบรูปไม่สำเร็จ: " + error.message });
 		} finally {
 			setUploadingAvatar(false);
 		}
@@ -240,15 +243,14 @@ export default function EditProfile() {
 
 			if (error) throw error;
 
-			alert("บันทึกการเปลี่ยนแปลงทั้งหมดเรียบร้อยแล้ว");
-			navigate("/profile");
+			setResultModal({ success: true, message: "บันทึกการเปลี่ยนแปลงทั้งหมดเรียบร้อยแล้ว", goToProfile: true });
 		} catch (error: any) {
 			// ดักจับ error เฉพาะจาก CHECK constraint ที่ตั้งไว้ใน Supabase (phone_number_digits_only)
 			// แล้วแปลงเป็นข้อความไทยที่เข้าใจง่าย แทนที่จะโชว์ error ดิบๆ จากฐานข้อมูล
 			if (error.message?.includes("phone_number_digits_only")) {
-				alert("กรุณากรอกเบอร์โทรศัพท์เป็นตัวเลขเท่านั้น (ห้ามมีตัวอักษรหรือสัญลักษณ์ปน)");
+				setResultModal({ success: false, message: "กรุณากรอกเบอร์โทรศัพท์เป็นตัวเลขเท่านั้น (ห้ามมีตัวอักษรหรือสัญลักษณ์ปน)" });
 			} else {
-				alert("เกิดข้อผิดพลาดในการบันทึก: " + error.message);
+				setResultModal({ success: false, message: "เกิดข้อผิดพลาดในการบันทึก: " + error.message });
 			}
 		} finally {
 			setSaving(false);
@@ -268,14 +270,14 @@ export default function EditProfile() {
 
 			navigate("/login");
 		} catch (error: any) {
-			alert("เกิดข้อผิดพลาด: " + error.message);
+			setResultModal({ success: false, message: "เกิดข้อผิดพลาด: " + error.message });
 		} finally {
 			setShowLogoutModal(false);
 		}
 	};
 
 	return (
-		<div className="min-h-screen bg-gray-50 font-kanit">
+		<div className="min-h-screen bg-cream font-kanit">
 			{/* ================= Navbar ================= */}
 			<nav className="bg-white shadow-sm border-b border-gray-300">
 				<div className="max-w-7xl mx-auto h-16 md:h-20 flex items-center justify-between px-4 md:px-8">
@@ -626,6 +628,19 @@ export default function EditProfile() {
 				)}
 
 			</div>
+
+			<ResultModal
+				open={!!resultModal}
+				success={resultModal?.success ?? true}
+				title={resultModal?.success ? "บันทึกสำเร็จ" : "เกิดข้อผิดพลาด"}
+				message={resultModal?.message || ""}
+				confirmLabel="ตกลง"
+				onConfirm={() => {
+					const shouldGoToProfile = resultModal?.goToProfile;
+					setResultModal(null);
+					if (shouldGoToProfile) navigate("/profile");
+				}}
+			/>
 		</div >
 	);
 }

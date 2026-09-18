@@ -67,7 +67,54 @@ export async function confirmMatch(matchId: string) {
   const response = await fetch(`${API}/matches/${matchId}/confirm`, { method: "POST" });
 
   if (!response.ok) {
-    throw new Error("ยืนยันไม่สำเร็จ");
+    let detail = "ยืนยันไม่สำเร็จ";
+    try {
+      const errBody = await response.json();
+      if (errBody?.detail) detail = errBody.detail;
+    } catch {
+      // ไม่ใช่ JSON ก็ปล่อยข้อความ default ไว้
+    }
+    throw new Error(detail);
+  }
+
+  return await response.json();
+}
+
+export async function rejectMatch(matchId: string) {
+  const response = await fetch(`${API}/matches/${matchId}/reject`, { method: "POST" });
+
+  if (!response.ok) {
+    let detail = "ดำเนินการไม่สำเร็จ";
+    try {
+      const errBody = await response.json();
+      if (errBody?.detail) detail = errBody.detail;
+    } catch {
+      // ไม่ใช่ JSON ก็ปล่อยข้อความ default ไว้
+    }
+    throw new Error(detail);
+  }
+
+  return await response.json();
+}
+
+export async function completeMatch(matchId: string, userId: string) {
+  const formData = new FormData();
+  formData.append("user_id", userId);
+
+  const response = await fetch(`${API}/matches/${matchId}/complete`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let detail = "ยืนยันไม่สำเร็จ";
+    try {
+      const errBody = await response.json();
+      if (errBody?.detail) detail = errBody.detail;
+    } catch {
+      // ไม่ใช่ JSON ก็ปล่อยข้อความ default ไว้
+    }
+    throw new Error(detail);
   }
 
   return await response.json();

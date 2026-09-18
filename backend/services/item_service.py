@@ -52,16 +52,24 @@ def get_items_by_user(user_id: str):
 
 
 def _attach_pending_match(row: dict) -> dict:
-    """ถ้า item นี้มีแมทช์ที่ยังไม่ยืนยัน (status='pending') ให้แนบข้อมูลไปด้วย เพื่อให้หน้า PostDetail
-    โชว์ปุ่ม "ยืนยันว่าใช่ของฉัน" ได้ถูกจุด
+    """แนบข้อมูลแมทช์ที่ AI เจอแต่ยังไม่จบเคส ให้หน้า PostDetail โชว์ปุ่มถูกจุดตามสเตจ:
 
-    สำคัญ: ปุ่มต้องโชว์ให้ "เจ้าของฝั่งของหาย (lost)" เท่านั้น ไม่ว่าจะกำลังดูโพสต์ไหนอยู่ก็ตาม
-    (โพสต์ของหายของตัวเอง หรือโพสต์ของที่พบของคนอื่นที่แมทช์มา) เพราะฉะนั้นต้องแนบ
-    pending_match_lost_owner_id (user_id ของเจ้าของฝั่งของหาย) ไปด้วยเสมอ ให้ frontend เทียบกับ
-    user ที่ login อยู่เอง"""
+    สเตจ 1 (status='pending'): รอเจ้าของฝั่ง "ของหาย" ยืนยันตัวตน
+      -> pending_match_id / pending_match_lost_owner_id
+      ใช้โชว์ปุ่ม "ใช่ของฉัน" / "ไม่ใช่ของฉัน" ให้เฉพาะเจ้าของฝั่งของหายเท่านั้น
+      (เทียบ user ที่ login กับ pending_match_lost_owner_id)
+
+    สเตจ 2 (status='confirmed'): เจ้าของของหายยืนยันตัวตนแล้ว รอฝ่ายใดฝ่ายหนึ่งกด "ได้รับของแล้ว"
+      -> confirmed_match_id / confirmed_match_lost_owner_id / confirmed_match_found_owner_id
+      ใช้โชว์ปุ่ม "ได้รับของแล้ว/คืนของแล้ว" ให้ทั้งเจ้าของของหายและผู้แจ้งพบ
+      (เทียบ user ที่ login กับทั้งสอง id นี้ ไม่ว่าจะกำลังดูโพสต์ไหนอยู่ก็ตาม)
+    """
     row["pending_match_id"] = None
     row["pending_match_lost_owner_id"] = None
-    if not row:
+    row["confirmed_match_id"] = None
+    row["confirmed_match_lost_owner_id"] = None
+    row["confirmed_match_found_owner_id"] = None
+    if not row or row.get("status") == "matched":
         return row
 
     item_id = row.get("id")
@@ -87,12 +95,34 @@ def _attach_pending_match(row: dict) -> dict:
         )
         row["pending_match_lost_owner_id"] = (lost_owner_res.data or {}).get("user_id") if lost_owner_res else None
 
+    confirmed_res = (
+        supabase.table("matches").select("id, lost_item_id, found_item_id")
+        .or_(f"lost_item_id.eq.{item_id},found_item_id.eq.{item_id}")
+        .eq("status", "confirmed")
+        .limit(1).execute()
+    )
+    confirmed_rows = confirmed_res.data or []
+    if confirmed_rows:
+        cmatch = confirmed_rows[0]
+        row["confirmed_match_id"] = cmatch["id"]
+
+        lost_owner_res = (
+            supabase.table("items").select("user_id")
+            .eq("id", cmatch["lost_item_id"]).maybe_single().execute()
+        )
+        found_owner_res = (
+            supabase.table("items").select("user_id")
+            .eq("id", cmatch["found_item_id"]).maybe_single().execute()
+        )
+        row["confirmed_match_lost_owner_id"] = (lost_owner_res.data or {}).get("user_id") if lost_owner_res else None
+        row["confirmed_match_found_owner_id"] = (found_owner_res.data or {}).get("user_id") if found_owner_res else None
+
     return row
 
 
 def _attach_matched_with(row: dict) -> dict:
-    """ถ้า item นี้ status='matched' แล้ว (ยืนยันแมทช์เรียบร้อย) ให้ไปดึงข้อมูลของ "อีกฝั่ง"
-    ที่แมทช์กัน (ชื่อผู้ประกาศ, รูป, เบอร์โทร, ชื่อสิ่งของ) มาแนบเป็น matched_with
+    """ถ้า item นี้ status='matched' แล้ว (ปิดเคสจริง ผ่าน complete_match สเตจ 2) ให้ไปดึงข้อมูลของ
+    "อีกฝั่ง" ที่แมทช์กัน (ชื่อผู้ประกาศ, รูป, เบอร์โทร, ชื่อสิ่งของ) มาแนบเป็น matched_with
     เพื่อให้หน้า PostDetail โชว์ทั้งผู้ประกาศเดิม + อีกฝั่งที่แมทช์กันพร้อมกันได้"""
     row["matched_with"] = None
     if not row or row.get("status") != "matched":
@@ -103,7 +133,7 @@ def _attach_matched_with(row: dict) -> dict:
     match_res = (
         supabase.table("matches").select("lost_item_id, found_item_id")
         .or_(f"lost_item_id.eq.{item_id},found_item_id.eq.{item_id}")
-        .eq("status", "confirmed")
+        .eq("status", "completed")
         .limit(1).execute()
     )
     match_rows = match_res.data or []
@@ -141,7 +171,7 @@ def _attach_pending_claim(row: dict) -> dict:
     ให้ทั้งเจ้าของโพสต์ (ฝั่งพบของ) และผู้อ้างสิทธิ์ (ฝั่งทำของหาย) กดปิดเคสได้ทั้งคู่"""
     row["pending_claim_id"] = None
     row["pending_claim_claimant_id"] = None
-    if not row:
+    if not row or row.get("status") == "matched":
         return row
 
     claim_res = (
