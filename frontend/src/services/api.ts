@@ -181,9 +181,11 @@ export async function reportItem(formData: FormData) {
   return await response.json();
 }
 
-export async function searchByImage(file: File) {
+export async function searchByImage(file: File, userId?: string) {
   const formData = new FormData();
   formData.append("image", file);
+  // ส่ง user_id ไปด้วยถ้า login อยู่ เพื่อให้ backend ซ่อนโพสต์ของตัวเองออกจากผลค้นหา
+  if (userId) formData.append("user_id", userId);
 
   const response = await fetch(`${API}/search-by-image`, {
     method: "POST",

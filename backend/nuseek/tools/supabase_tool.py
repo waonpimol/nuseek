@@ -194,14 +194,28 @@ def search_vector(
 # SEARCH BY EMBEDDING (plain function, ไม่ผ่าน ADK state)
 # ใช้โดย endpoint /search-by-image ที่ไม่ต้องพึ่ง LLM agent
 # ==========================================
-def search_by_embedding(embedding: list, top_k: int = 10, threshold: float = 0.3):
+def get_item_ids_by_user(user_id: str) -> list:
+    """id ของโพสต์ทั้งหมดที่ user คนนี้เป็นเจ้าของ (ใช้กันไม่ให้ค้นหาด้วยรูปเจอโพสต์ตัวเอง)"""
+    if not user_id:
+        return []
+    result = supabase.table("items").select("id").eq("user_id", user_id).execute()
+    return [r["id"] for r in (result.data or [])]
+
+
+def search_by_embedding(embedding: list, top_k: int = 10, threshold: float = 0.3, exclude_item_ids=None):
     """
     ค้นหาไอเทมที่คล้ายกัน "ข้ามทั้งสองประเภท" (lost + found)
     รับ embedding ตรง ๆ เป็น argument (ไม่ต้องมี ToolContext/session)
+
+    exclude_item_ids: id ที่ไม่ต้องการให้อยู่ในผล (เช่น โพสต์ของผู้ค้นหาเอง)
+    ดึงเกินมา len(exclude) ต่อประเภท ก่อนค่อยตัดทิ้ง เพื่อให้หลังตัดแล้วยังเหลือครบ top_k
+    (ไม่ใช่ตัดหลังจากที่โพสต์ตัวเองกินโควตา top_k ไปแล้ว)
     """
     if not embedding:
         return []
 
+    exclude = {str(i) for i in (exclude_item_ids or [])}
+    fetch_count = top_k + len(exclude)
     all_rows = []
 
     for target_type in ("lost", "found"):
@@ -212,12 +226,12 @@ def search_by_embedding(embedding: list, top_k: int = 10, threshold: float = 0.3
                 {
                     "query_embedding": embedding,
                     "match_type": target_type,
-                    "match_count": top_k
+                    "match_count": fetch_count
                 }
             )
             .execute()
         )
-        all_rows.extend(result.data or [])
+        all_rows.extend(r for r in (result.data or []) if str(r.get("id")) not in exclude)
 
     matches = [x for x in all_rows if x.get("score", 0) >= threshold]
     matches.sort(key=lambda x: x.get("score", 0), reverse=True)

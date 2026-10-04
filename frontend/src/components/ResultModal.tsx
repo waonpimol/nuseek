@@ -113,7 +113,7 @@ const styles: Record<string, React.CSSProperties> = {
 	},
 	confirmBtn: {
 		width: '100%',
-		backgroundColor: '#ED8936',
+		backgroundColor: '#FF8820',
 		color: '#FFFFFF',
 		border: 'none',
 		padding: '12px 0',

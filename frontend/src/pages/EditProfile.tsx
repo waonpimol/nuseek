@@ -18,6 +18,7 @@ import { supabase } from "../services/supabaseClient";
 import { useNotifications } from "../hooks/useNotifications";
 import { formatRelativeTime } from "../utils/format";
 import ResultModal from "../components/ResultModal";
+import Spinner from "../components/Spinner";
 
 // สีคงที่ตามชื่อ (hash) — คนเดิมได้สีเดิมเสมอ ไม่ต้องเก็บสีลง DB เพิ่ม
 const getAvatarColor = (name: string) => {
@@ -569,7 +570,7 @@ export default function EditProfile() {
 								disabled={saving}
 								className="flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white px-5 py-2.5 sm:px-7 sm:py-3.5 text-sm sm:text-base rounded-xl font-semibold shadow-sm transition"
 							>
-								<Save size={18} />
+								{saving ? <Spinner size={18} /> : <Save size={18} />}
 								{saving ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
 							</button>
 						</div>

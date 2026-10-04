@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "../services/supabaseClient";
+import PageLoader from "./PageLoader";
 
 // ครอบทุกหน้าที่บังคับให้ต้อง login ก่อนถึงจะเข้าได้
 // ถ้ายังไม่ login จะเด้งไปหน้า Welcome (เลือกเข้าสู่ระบบ/สมัครสมาชิก) แทน
@@ -30,9 +31,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
 
   if (checking) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-400 font-kanit">
-        กำลังตรวจสอบสิทธิ์การเข้าใช้งาน...
-      </div>
+      <PageLoader fullScreen />
     );
   }
 

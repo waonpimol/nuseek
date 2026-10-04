@@ -13,6 +13,7 @@ import {
 import { supabase } from "../services/supabaseClient";
 import { isValidEmail, getPasswordChecks, isPasswordStrong } from "../utils/validation";
 import ResultModal from "../components/ResultModal";
+import Spinner from "../components/Spinner";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -94,13 +95,14 @@ export default function Signup() {
 
         {/* Icon */}
         <div className="flex justify-center">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-orange-500 flex items-center justify-center">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-[#FF6B00] flex items-center justify-center">
             <UserPlus className="text-white w-6 h-6 sm:w-8 sm:h-8" />
           </div>
         </div>
 
-        <h1 className="text-center text-xl sm:text-3xl font-semibold text-orange-500 mt-3 sm:mt-5">
-          สมัครสมาชิก
+        <h1 className="text-center text-xl sm:text-3xl font-semibold mt-3 sm:mt-5">
+          <span className="text-[#FF6B00]">สมัคร</span>
+          <span className="text-gray-900">สมาชิก</span>
         </h1>
 
         <p className="text-center text-gray-500 text-xs sm:text-base mt-1.5 sm:mt-2 mb-5 sm:mb-8">
@@ -120,7 +122,7 @@ export default function Signup() {
                 disabled={loading}
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 py-2.5 sm:py-3 pl-11 sm:pl-12 pr-4 text-sm sm:text-base outline-none focus:ring-2 focus:ring-orange-400 disabled:bg-gray-100"
+                className="w-full rounded-xl border border-gray-300 py-2.5 sm:py-3 pl-11 sm:pl-12 pr-4 text-sm sm:text-base outline-none focus:ring-2 focus:ring-[#FF6B00] disabled:bg-gray-100"
               />
             </div>
           </div>
@@ -136,7 +138,7 @@ export default function Signup() {
                 disabled={loading}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 py-2.5 sm:py-3 pl-11 sm:pl-12 pr-4 text-sm sm:text-base outline-none focus:ring-2 focus:ring-orange-400 disabled:bg-gray-100"
+                className="w-full rounded-xl border border-gray-300 py-2.5 sm:py-3 pl-11 sm:pl-12 pr-4 text-sm sm:text-base outline-none focus:ring-2 focus:ring-[#FF6B00] disabled:bg-gray-100"
                 placeholder="example@email.com"
               />
             </div>
@@ -156,12 +158,12 @@ export default function Signup() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onFocus={() => setPasswordFocused(true)}
-                className="w-full rounded-xl border border-gray-300 py-2.5 sm:py-3 pl-11 sm:pl-12 pr-11 sm:pr-12 text-sm sm:text-base outline-none focus:ring-2 focus:ring-orange-400 disabled:bg-gray-100"
+                className="w-full rounded-xl border border-gray-300 py-2.5 sm:py-3 pl-11 sm:pl-12 pr-11 sm:pr-12 text-sm sm:text-base outline-none focus:ring-2 focus:ring-[#FF6B00] disabled:bg-gray-100"
               />
               <button
-                type="button" 
+                type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 sm:right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-orange-500 transition-colors focus:outline-none"
+                className="absolute right-3.5 sm:right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#FF6B00] transition-colors focus:outline-none"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -195,12 +197,12 @@ export default function Signup() {
                 disabled={loading}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 py-2.5 sm:py-3 pl-11 sm:pl-12 pr-11 sm:pr-12 text-sm sm:text-base outline-none focus:ring-2 focus:ring-orange-400 disabled:bg-gray-100"
+                className="w-full rounded-xl border border-gray-300 py-2.5 sm:py-3 pl-11 sm:pl-12 pr-11 sm:pr-12 text-sm sm:text-base outline-none focus:ring-2 focus:ring-[#FF6B00] disabled:bg-gray-100"
               />
               <button
-                type="button" 
+                type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 sm:right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-orange-500 transition-colors focus:outline-none"
+                className="absolute right-3.5 sm:right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#FF6B00] transition-colors focus:outline-none"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -211,9 +213,9 @@ export default function Signup() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2.5 sm:py-3 text-sm sm:text-base rounded-xl font-semibold transition disabled:bg-gray-400"
+            className="w-full flex items-center justify-center gap-2 bg-[#FF6B00] hover:bg-[#E65F00] text-white py-2.5 sm:py-3 text-sm sm:text-base rounded-xl font-semibold transition disabled:bg-gray-400"
           >
-            {loading ? "กำลังลงทะเบียน..." : "สมัครสมาชิก"}
+            {loading ? (<><Spinner size={16} />กำลังลงทะเบียน...</>) : "สมัครสมาชิก"}
           </button>
 
         </form>
@@ -229,7 +231,7 @@ export default function Signup() {
           มีบัญชีอยู่แล้ว?
           <Link
             to="/login"
-            className="text-orange-500 font-semibold ml-2 hover:underline"
+            className="text-[#FF6B00] font-semibold ml-2 hover:underline"
           >
             เข้าสู่ระบบ
           </Link>

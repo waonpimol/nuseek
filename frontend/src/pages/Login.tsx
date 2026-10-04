@@ -4,6 +4,7 @@ import { Mail, Lock, LogIn, Eye, EyeOff } from "lucide-react";
 import { supabase } from "../services/supabaseClient";
 import { isValidEmail, translateAuthError } from "../utils/validation";
 import ResultModal from "../components/ResultModal";
+import Spinner from "../components/Spinner";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -45,14 +46,15 @@ export default function Login() {
 
         {/* Icon */}
         <div className="flex justify-center">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-orange-500 rounded-2xl flex items-center justify-center">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#FF6B00] rounded-2xl flex items-center justify-center">
             <LogIn className="text-white w-6 h-6 sm:w-8 sm:h-8" />
           </div>
         </div>
 
         {/* Title */}
-        <h1 className="text-center text-xl sm:text-3xl font-semibold text-orange-500 mt-3 sm:mt-5">
-          เข้าสู่ระบบ
+        <h1 className="text-center text-xl sm:text-3xl font-semibold mt-3 sm:mt-5">
+          <span className="text-[#FF6B00]">เข้า</span>
+          <span className="text-gray-900">สู่ระบบ</span>
         </h1>
 
         <p className="text-center text-gray-500 text-xs sm:text-base mt-1.5 sm:mt-2 mb-5 sm:mb-8">
@@ -74,7 +76,7 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="example@email.com"
-                className="w-full rounded-xl border border-gray-300 py-2.5 sm:py-3 pl-11 sm:pl-12 pr-4 text-sm sm:text-base outline-none focus:ring-2 focus:ring-orange-400 disabled:bg-gray-100"
+                className="w-full rounded-xl border border-gray-300 py-2.5 sm:py-3 pl-11 sm:pl-12 pr-4 text-sm sm:text-base outline-none focus:ring-2 focus:ring-[#FF6B00] disabled:bg-gray-100"
               />
             </div>
           </div>
@@ -91,14 +93,14 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="********"
-                className="w-full rounded-xl border border-gray-300 py-2.5 sm:py-3 pl-11 sm:pl-12 pr-11 sm:pr-12 text-sm sm:text-base outline-none focus:ring-2 focus:ring-orange-400 disabled:bg-gray-100"
+                className="w-full rounded-xl border border-gray-300 py-2.5 sm:py-3 pl-11 sm:pl-12 pr-11 sm:pr-12 text-sm sm:text-base outline-none focus:ring-2 focus:ring-[#FF6B00] disabled:bg-gray-100"
               />
 
               {/* ปุ่มเปิด-ปิดตา */}
               <button
-                type="button" 
+                type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 sm:right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-orange-500 transition-colors focus:outline-none"
+                className="absolute right-3.5 sm:right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#FF6B00] transition-colors focus:outline-none"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -106,8 +108,8 @@ export default function Login() {
 
             <div className="text-right mt-1.5 sm:mt-2">
               <Link
-                to="/forgot-password" 
-                className="text-orange-500 hover:underline text-xs sm:text-sm"
+                to="/forgot-password"
+                className="text-[#FF6B00] hover:underline text-xs sm:text-sm"
               >
                 ลืมรหัสผ่าน?
               </Link>
@@ -118,9 +120,9 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2.5 sm:py-3 text-sm sm:text-base rounded-xl font-semibold transition disabled:bg-gray-400"
+            className="w-full flex items-center justify-center gap-2 bg-[#FF6B00] hover:bg-[#E65F00] text-white py-2.5 sm:py-3 text-sm sm:text-base rounded-xl font-semibold transition disabled:bg-gray-400"
           >
-            {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
+            {loading ? (<><Spinner size={16} />กำลังเข้าสู่ระบบ...</>) : "เข้าสู่ระบบ"}
           </button>
 
         </form>
@@ -137,7 +139,7 @@ export default function Login() {
           ยังไม่มีบัญชี?
           <Link
             to="/signup"
-            className="text-orange-500 font-semibold ml-2 hover:underline"
+            className="text-[#FF6B00] font-semibold ml-2 hover:underline"
           >
             สมัครสมาชิก
           </Link>

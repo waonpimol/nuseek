@@ -19,6 +19,7 @@ import { getPlaceholderImage } from "../utils/placeholder";
 import { LOCATIONS } from "../utils/locations";
 import { useNotifications } from "../hooks/useNotifications";
 import { getAvatarColor, getAvatarInitial } from "../utils/avatar";
+import PostSkeletonList from "../components/PostSkeleton";
 
 // แปลง type จาก DB ("lost"/"found") เป็นข้อความไทยที่ UI เดิมใช้อยู่
 const typeLabel = (type: string) => (type === "lost" ? "ของหาย" : "ของที่พบ");
@@ -259,7 +260,7 @@ export default function AllPosts() {
 						</div>
 
 						<div className="text-xs sm:text-sm text-gray-500 font-medium">
-							พบทั้งหมด <span className="text-orange-500 font-bold text-sm sm:text-base">{filteredPosts.length}</span> ประกาศ
+							<span className="text-orange-500 font-bold text-sm sm:text-base">{filteredPosts.length}</span> ประกาศ
 						</div>
 					</div>
 
@@ -304,7 +305,7 @@ export default function AllPosts() {
 
 				{/* ---- สถานะโหลด/error/ว่างเปล่า ---- */}
 				{loading && (
-					<div className="text-center text-gray-400 py-16">กำลังโหลดประกาศ...</div>
+					<PostSkeletonList count={6} className="gap-3 sm:gap-6" />
 				)}
 
 				{!loading && error && (

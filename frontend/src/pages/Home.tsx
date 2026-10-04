@@ -5,7 +5,7 @@ import {
   Bell,
   User,
   Search,
-  Package,
+  PackageSearch,
   FileText,
   Menu,
   X
@@ -187,7 +187,7 @@ export default function HomePage() {
 
       <section className="flex flex-col items-center justify-center mt-8 sm:mt-16 px-4 text-center">
 
-        <Package className="w-14 h-14 sm:w-24 sm:h-24 mb-3 sm:mb-4 text-gray-400 stroke-[1.5]" />
+        <PackageSearch className="w-16 h-16 sm:w-28 sm:h-28 mb-3 sm:mb-4 text-gray-700 stroke-[1.5]" />
 
         <h1 className="text-2xl sm:text-4xl font-semibold text-orange-500">
           ช่วยตามหาของหาย

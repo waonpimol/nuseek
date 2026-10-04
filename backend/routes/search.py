@@ -3,11 +3,11 @@ import shutil
 import tempfile
 import uuid
 
-from fastapi import APIRouter, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, Form, BackgroundTasks
 
 from nuseek.tools.blip_tool import generate_caption
 from nuseek.tools.embedding_tool import embed_text
-from nuseek.tools.supabase_tool import search_by_embedding, log_search_query
+from nuseek.tools.supabase_tool import search_by_embedding, log_search_query, get_item_ids_by_user
 from nuseek.tools.verification_agent import translate_caption_to_thai, verify_candidates
 
 router = APIRouter()
@@ -19,10 +19,17 @@ HIGH_CONFIDENCE_THRESHOLD = 0.7
 # ผลลัพธ์สุดท้ายที่ยืนยันว่าตรงแล้ว อาจมีหลายอันพร้อมกัน (เช่น มีคนโพสต์ของแบบเดียวกันไว้หลายโพสต์)
 # โชว์ให้ผู้ใช้แค่ที่ดีที่สุด 5 อันดับแรกพอ ไม่ต้องเทกองมาให้ดูทั้งหมด
 DISPLAY_TOP_K = 5
+# candidate กลุ่ม score ต่ำ ต้องผ่าน agent และ agent ต้องระบุรายละเอียดที่ตรงกันจริงอย่างน้อยเท่านี้
+# (ไม่นับชนิดของสิ่งของ) ไม่ใช่เชื่อแค่ is_match=true — กันเคสที่ตรงกันแค่คำว่า "หูฟัง" คำเดียว
+MIN_MATCHED_DETAILS = 2
 
 
 @router.post("/search-by-image")
-async def search_by_image(image: UploadFile = File(...), background_tasks: BackgroundTasks = None):
+async def search_by_image(
+    image: UploadFile = File(...),
+    user_id: str = Form(""),  # ถ้า login อยู่จะส่งมา ใช้ซ่อนโพสต์ของตัวเองออกจากผลค้นหา (ไม่ login ก็ค้นหาได้ปกติ)
+    background_tasks: BackgroundTasks = None,
+):
     """
     ค้นหาไอเทมที่คล้ายกับรูปที่แนบมา (ข้ามทั้งประกาศของหาย/ของพบ)
 
@@ -61,14 +68,22 @@ async def search_by_image(image: UploadFile = File(...), background_tasks: Backg
         embedding = embed_text(caption_th or caption_en)
 
         # recall กว้าง ๆ ก่อน (score >= 0.3 ทั้งหมด)
-        candidates = search_by_embedding(embedding, top_k=10, threshold=RECALL_THRESHOLD)
+        # ไม่เอาโพสต์ของผู้ค้นหาเองมาเป็นผลลัพธ์ (ไม่มีประโยชน์ และเป็นโพสต์ที่กดอ้างสิทธิ์ตัวเองไม่ได้อยู่แล้ว)
+        own_item_ids = get_item_ids_by_user(user_id) if user_id else []
+        candidates = search_by_embedding(
+            embedding, top_k=10, threshold=RECALL_THRESHOLD, exclude_item_ids=own_item_ids
+        )
 
         high_confidence = [c for c in candidates if c.get("score", 0) >= HIGH_CONFIDENCE_THRESHOLD]
         low_confidence = [c for c in candidates if c.get("score", 0) < HIGH_CONFIDENCE_THRESHOLD]
 
         # ส่งเฉพาะกลุ่ม score ต่ำให้ agent พิจารณา ไม่ต้องเปลืองเรียก Gemini กับกลุ่มที่ชัวร์อยู่แล้ว
         verified_low = verify_candidates(caption_th or caption_en, low_confidence) if low_confidence else []
-        low_confidence_matched = [r for r in verified_low if r.get("llm_is_match") is True]
+        low_confidence_matched = [
+            r for r in verified_low
+            if r.get("llm_is_match") is True
+            and len(r.get("llm_matched_details") or []) >= MIN_MATCHED_DETAILS
+        ]
 
         results = high_confidence + low_confidence_matched
         results.sort(key=lambda r: r.get("score", 0), reverse=True)
@@ -81,6 +96,7 @@ async def search_by_image(image: UploadFile = File(...), background_tasks: Backg
                 "id": c.get("id"), "title": c.get("title"), "type": c.get("type"),
                 "score": c.get("score"), "llm_is_match": c.get("llm_is_match"),
                 "llm_confidence": c.get("llm_confidence"), "llm_reason": c.get("llm_reason"),
+                "llm_matched_details": c.get("llm_matched_details"),
             }
             for c in verified_low
         ]

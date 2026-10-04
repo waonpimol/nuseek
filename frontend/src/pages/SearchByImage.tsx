@@ -20,6 +20,9 @@ import { searchByImage } from "../services/api";
 import { getPlaceholderImage } from "../utils/placeholder";
 import { useNotifications } from "../hooks/useNotifications";
 import { formatRelativeTime } from "../utils/format";
+import Spinner from "../components/Spinner";
+import { supabase } from "../services/supabaseClient";
+import LoadingOverlay from "../components/LoadingOverlay";
 
 const FALLBACK_IMAGE = getPlaceholderImage(300, 225);
 const typeLabel = (type: string) => (type === "lost" ? "ของหาย" : "ของที่พบ");
@@ -69,7 +72,8 @@ export default function SearchByImage() {
     setResults(null);
 
     try {
-      const data = await searchByImage(selectedImage);
+      const { data: { user } } = await supabase.auth.getUser();
+      const data = await searchByImage(selectedImage, user?.id);
       setResults(data.results || []);
     } catch (err) {
       console.error(err);
@@ -268,7 +272,7 @@ export default function SearchByImage() {
                   >
                     {isAnalyzing ? (
                       <>
-                        <span className="w-3.5 h-3.5 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        <Spinner size={15} />
                         กำลังวิเคราะห์ข้อมูล...
                       </>
                     ) : (
@@ -333,9 +337,11 @@ export default function SearchByImage() {
                           (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
                         }}
                       />
-                      <div className={`hidden sm:flex absolute top-3 left-3 px-3 py-1.5 rounded-full items-center gap-2 shadow-sm ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
-                        <span className="w-2.5 h-2.5 rounded-full bg-white" />
-                        <span className="text-xs font-semibold text-white">{typeLabel(item.type)}</span>
+                      <div className={`hidden sm:flex absolute top-3 left-3 px-3 py-1.5 rounded-full items-center gap-2 shadow-sm select-none ${item.type === "lost" ? "bg-red-100" : "bg-sky-100"}`}>
+                        <span className={`w-2.5 h-2.5 rounded-full ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`} />
+                        <span className={`text-xs font-semibold tracking-wide ${item.type === "lost" ? "text-red-500" : "text-sky-500"}`}>
+                          {typeLabel(item.type)}
+                        </span>
                       </div>
                       <div className="hidden sm:block absolute top-3 right-3 bg-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">
                         {Math.round((item.score || 0) * 100)}%
@@ -344,8 +350,8 @@ export default function SearchByImage() {
 
                     <div className="p-3 sm:p-4 flex-1 flex flex-col justify-center sm:justify-start gap-1.5 sm:space-y-2 min-w-0">
                       <div className={`flex sm:hidden w-fit items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${item.type === "lost" ? "bg-red-100" : "bg-sky-100"}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${item.type === "lost" ? "bg-red-600" : "bg-sky-600"}`} />
-                        <span className={item.type === "lost" ? "text-red-700" : "text-sky-700"}>{typeLabel(item.type)}</span>
+                        <span className={`w-1.5 h-1.5 rounded-full ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`} />
+                        <span className={item.type === "lost" ? "text-red-500" : "text-sky-500"}>{typeLabel(item.type)}</span>
                       </div>
                       <h4 className="text-sm font-semibold text-gray-800 line-clamp-1 sm:line-clamp-2">
                         {item.title || "ไม่ระบุชื่อสิ่งของ"}
@@ -354,10 +360,12 @@ export default function SearchByImage() {
                         <MapPin size={13} className="text-gray-400 flex-shrink-0" />
                         <span className="truncate">{item.location || "ไม่ระบุสถานที่"}</span>
                       </div>
-                      <div className="hidden sm:flex items-center gap-1.5 text-xs text-gray-400">
-                        <Clock size={13} className="flex-shrink-0" />
-                        <span>{formatRelativeTime(item.created_at)}</span>
-                      </div>
+                      {item.created_at && (
+                        <div className="hidden sm:flex items-center gap-1.5 text-xs text-gray-400">
+                          <Clock size={13} className="flex-shrink-0" />
+                          <span>{formatRelativeTime(item.created_at)}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -367,6 +375,16 @@ export default function SearchByImage() {
         )}
 
       </div>
+
+      <LoadingOverlay
+        open={isAnalyzing}
+        messages={[
+          "กำลังอัปโหลดรูปภาพ...",
+          "AI กำลังวิเคราะห์รูปของคุณ...",
+          "กำลังค้นหาสิ่งของที่ใกล้เคียง...",
+          "กำลังตรวจสอบความตรงกันของผลลัพธ์...",
+        ]}
+      />
     </div>
   );
 }

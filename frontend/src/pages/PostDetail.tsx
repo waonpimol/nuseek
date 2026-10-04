@@ -25,6 +25,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { supabase } from '../services/supabaseClient';
 import { getAvatarColor, getAvatarInitial } from '../utils/avatar';
 import ResultModal from '../components/ResultModal';
+import PageLoader from '../components/PageLoader';
 
 const FALLBACK_IMAGE = getPlaceholderImage(600, 400);
 
@@ -57,7 +58,7 @@ function ContactList({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '2px' }}>
       {phone && (
         <div style={rowStyle}>
-          <Phone size={12} style={{ color: '#DD6B20' }} />
+          <Phone size={12} style={{ color: '#E05F00' }} />
           <span>{phone}</span>
         </div>
       )}
@@ -420,7 +421,7 @@ export default function PostDetail() {
           </Link>
 
           {loading && (
-            <div style={styles.stateBox}>กำลังโหลด...</div>
+            <PageLoader />
           )}
 
           {!loading && error && (

@@ -20,6 +20,7 @@ import { formatRelativeTime } from "../utils/format";
 import { getPlaceholderImage } from "../utils/placeholder";
 import { useNotifications } from "../hooks/useNotifications";
 import { getAvatarColor, getAvatarInitial } from "../utils/avatar";
+import PostSkeletonList from "../components/PostSkeleton";
 import ResultModal from "../components/ResultModal";
 
 interface UserProfile {
@@ -417,7 +418,7 @@ export default function Profile() {
           {/* ================= รายการประกาศของฉัน ================= */}
 
           {itemsLoading && (
-            <div className="py-20 text-center text-gray-400 animate-pulse">กำลังโหลดประกาศ...</div>
+            <PostSkeletonList count={4} className="gap-3 sm:gap-5 mt-5 sm:mt-6" />
           )}
 
           {!itemsLoading && filteredItems.length === 0 && (

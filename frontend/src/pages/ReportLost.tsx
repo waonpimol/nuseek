@@ -18,6 +18,8 @@ import { useNotifications } from '../hooks/useNotifications';
 import { formatRelativeTime } from '../utils/format';
 import { hasContactInfo } from '../utils/profilecontact';
 import ResultModal from '../components/ResultModal';
+import Spinner from '../components/Spinner';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 export default function ReportLost() {
 	const navigate = useNavigate();
@@ -177,7 +179,7 @@ export default function ReportLost() {
 													className={`flex gap-2 p-2.5 sm:gap-3 sm:p-4 hover:bg-gray-50 transition cursor-pointer text-left ${n.is_read ? "" : "bg-orange-50/40"}`}
 												>
 													<div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
-														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 															<circle cx="12" cy="12" r="9" />
 															<path d="M8 12l3 3 5-6" />
 														</svg>
@@ -317,10 +319,10 @@ export default function ReportLost() {
 
 							{/* แจ้งว่าข้อมูลติดต่อดึงจากโปรไฟล์อัตโนมัติ ไม่ต้องกรอกซ้ำทุกครั้ง */}
 							<div style={styles.infoBanner}>
-								<Info size={14} style={{ color: '#3182CE', flexShrink: 0, marginTop: '1px' }} />
+								<Info size={14} style={{ color: '#0EA5E9', flexShrink: 0, marginTop: '1px' }} />
 								<span>
 									ระบบจะใช้เบอร์โทร/Line/Facebook จาก
-									<Link to="/editprofile" style={{ color: '#3182CE', fontWeight: 600, textDecoration: 'underline', margin: '0 4px' }}>
+									<Link to="/editprofile" style={{ color: '#0EA5E9', fontWeight: 600, textDecoration: 'underline', margin: '0 4px' }}>
 										โปรไฟล์ของคุณ
 									</Link>
 									ให้อีกฝั่งติดต่อกลับ กรุณาตรวจสอบให้เป็นข้อมูลล่าสุดก่อนส่งประกาศ
@@ -331,8 +333,8 @@ export default function ReportLost() {
 						<div style={styles.divider}></div>
 
 						{/* ปุ่มส่งฟอร์มประกาศ */}
-						<button type="submit" style={styles.submitBtn} disabled={loading}>
-							{loading ? 'กำลังบันทึก...' : 'ยืนยันการลงประกาศตามหา'}
+						<button type="submit" style={{ ...styles.submitBtn, ...(loading ? styles.submitBtnLoading : {}) }} disabled={loading}>
+							{loading ? (<><Spinner size={16} />กำลังบันทึก...</>) : 'ยืนยันการลงประกาศตามหา'}
 						</button>
 
 						{/* หมายเหตุแจ้งเตือนผู้ใช้งานตัวเล็กด้านล่าง */}
@@ -352,6 +354,15 @@ export default function ReportLost() {
 
 				</div>
 			</div>
+
+			<LoadingOverlay
+				open={loading}
+				messages={[
+					"กำลังอัปโหลดข้อมูลและรูปภาพ...",
+					"AI กำลังวิเคราะห์ประกาศของคุณ...",
+					"กำลังค้นหาคู่ที่ตรงกัน...",
+				]}
+			/>
 
 			<ResultModal
 				open={!!resultModal}
@@ -405,14 +416,14 @@ const styles: Record<string, React.CSSProperties> = {
 	infoBanner: { display: 'flex', alignItems: 'flex-start', gap: '8px', backgroundColor: '#EBF8FF', border: '1px solid #BEE3F8', borderRadius: '10px', padding: 'clamp(8px, 2.5vw, 10px) clamp(10px, 3vw, 12px)', marginTop: '14px', fontSize: 'clamp(10.5px, 2.8vw, 12px)', color: '#2C5282', lineHeight: '1.6' },
 	toolItem: { display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 4px' },
 
-	toolIconBlue: { color: '#3182CE' },
-	toolTextBlue: { fontSize: 'clamp(11px, 3vw, 14px)', color: '#3182CE', fontWeight: '500' },
+	toolIconBlue: { color: '#0EA5E9' },
+	toolTextBlue: { fontSize: 'clamp(11px, 3vw, 14px)', color: '#0EA5E9', fontWeight: '500' },
 
-	toolIconOrange: { color: '#ED8936' },
-	toolTextOrange: { fontSize: 'clamp(11px, 3vw, 14px)', color: '#ED8936', fontWeight: '500' },
+	toolIconOrange: { color: '#FF8820' },
+	toolTextOrange: { fontSize: 'clamp(11px, 3vw, 14px)', color: '#FF8820', fontWeight: '500' },
 
-	toolIconDarkOrange: { color: '#DD6B20' },
-	toolTextDarkOrange: { fontSize: 'clamp(11px, 3vw, 14px)', color: '#DD6B20', fontWeight: '500' },
+	toolIconDarkOrange: { color: '#E05F00' },
+	toolTextDarkOrange: { fontSize: 'clamp(11px, 3vw, 14px)', color: '#E05F00', fontWeight: '500' },
 
 	toolIconGreen: { color: '#38A169' },
 	toolTextGreen: { fontSize: 'clamp(11px, 3vw, 14px)', color: '#38A169', fontWeight: '500' },
@@ -427,7 +438,8 @@ const styles: Record<string, React.CSSProperties> = {
 	socialInput: { width: '100%', padding: '11px 14px', border: '1px solid #E2E8F0', borderRadius: '10px', fontSize: '13.5px', color: '#2D3748', outline: 'none', backgroundColor: '#F9FAFB', boxSizing: 'border-box' as const, transition: 'border-color 0.15s, background-color 0.15s', fontFamily: 'inherit' },
 
 	// ปุ่มหลักโทนแดง (ต่างจาก ReportFound ที่เป็นน้ำเงิน) ให้แยกออกง่ายว่าเป็นฝั่ง "ของหาย"
-	submitBtn: { width: '100%', backgroundColor: '#E53E3E', color: '#FFFFFF', border: 'none', padding: 'clamp(10px, 3vw, 14px) 0', borderRadius: '12px', fontSize: 'clamp(12px, 3.2vw, 15px)', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit' },
+	submitBtn: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backgroundColor: '#FF3B3B', color: '#FFFFFF', border: 'none', padding: 'clamp(10px, 3vw, 14px) 0', borderRadius: '12px', fontSize: 'clamp(12px, 3.2vw, 15px)', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit' },
+	submitBtnLoading: { opacity: 0.75, cursor: 'not-allowed' },
 
 	noteBox: { textAlign: 'left', marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '4px', paddingLeft: '4px' },
 	noteItem: { fontSize: 'clamp(10.5px, 2.8vw, 12px)', color: '#718096', margin: 0 },

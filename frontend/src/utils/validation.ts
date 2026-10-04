@@ -42,7 +42,7 @@ export function translateAuthError(message: string): string {
     return "รหัสผ่านสั้นเกินไป กรุณาตั้งรหัสผ่านให้ยาวขึ้น";
   }
   if (msg.includes("rate limit") || msg.includes("too many requests")) {
-    return "พยายามเข้าสู่ระบบถี่เกินไป กรุณารอสักครู่แล้วลองใหม่อีกครั้ง";
+    return "ทำรายการถี่เกินไป กรุณารอสักครู่แล้วลองใหม่อีกครั้ง";
   }
   if (msg.includes("network") || msg.includes("fetch")) {
     return "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง";
