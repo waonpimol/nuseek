@@ -447,7 +447,11 @@ export default function PostDetail() {
               {/* ช่วงเวลาที่ลงโพสต์ */}
               <div style={styles.timeBadge}>
                 <Clock size={14} style={{ color: '#718096' }} />
-                <span>{post.created_at ? formatRelativeTime(post.created_at) : "-"}</span>
+                <span>
+                  {post.status === "matched" && post.resolved_at
+                    ? `จบเคส ${formatRelativeTime(post.resolved_at)}`
+                    : post.created_at ? formatRelativeTime(post.created_at) : "-"}
+                </span>
               </div>
 
               {/* สถานที่หายหรือพบ */}

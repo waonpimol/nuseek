@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from supabase import create_client
 from google.adk.tools.tool_context import ToolContext
@@ -284,6 +285,7 @@ def create_notification(user_id, item_id, matched_item_id, message, match_id=Non
         )
         .execute()
     )
+
     return result.data
 
 
@@ -422,10 +424,17 @@ def save_match(lost_item_id, found_item_id, similarity_score):
 # UPDATE STATUS
 # ==========================================
 def update_item_status(item_id, status):
+    update = {"status": status}
+    # บันทึกเวลาที่จบเคส (resolved_at) ตอนเปลี่ยนเป็น matched — ทุกทางที่ปิดเคสผ่านฟังก์ชันนี้ที่เดียว
+    # (ยืนยัน/ส่งมอบแมทช์, ยืนยันการอ้างสิทธิ์, ปิดโพสต์ของผู้อ้างสิทธิ์) ใช้เวลานี้แสดง "จบเคส x ที่แล้ว"
+    # และคำนวณระยะเวลาที่เคสใช้จนจบ (resolved_at - created_at) ได้
+    # ต้องรัน migrations/007_items_resolved_at.sql ก่อน ไม่งั้นคอลัมน์นี้ยังไม่มีและ update จะ error
+    if status == "matched":
+        update["resolved_at"] = datetime.now(timezone.utc).isoformat()
     result = (
         supabase
         .table("items")
-        .update({"status": status})
+        .update(update)
         .eq("id", item_id)
         .execute()
     )

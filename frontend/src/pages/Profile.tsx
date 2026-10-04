@@ -21,6 +21,7 @@ import { getPlaceholderImage } from "../utils/placeholder";
 import { useNotifications } from "../hooks/useNotifications";
 import { getAvatarColor, getAvatarInitial } from "../utils/avatar";
 import PostSkeletonList from "../components/PostSkeleton";
+import EmptyState from "../components/EmptyState";
 import ResultModal from "../components/ResultModal";
 
 interface UserProfile {
@@ -422,10 +423,24 @@ export default function Profile() {
           )}
 
           {!itemsLoading && filteredItems.length === 0 && (
-            <div className="py-20 flex flex-col items-center">
-              <PackageSearch size={70} className="text-gray-300" />
-              <p className="text-gray-400 mt-5 text-lg">ยังไม่มีประกาศในหมวดนี้</p>
-            </div>
+            activeTab === "all" ? (
+              <EmptyState
+                icon={PackageSearch}
+                title="คุณยังไม่มีประกาศ"
+                description="เริ่มแจ้งของหายหรือแจ้งพบของ ระบบจะช่วยจับคู่ให้อัตโนมัติ"
+              >
+                <Link to="/reportlost" className="inline-flex items-center justify-center bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-xs sm:text-sm rounded-xl font-semibold transition">แจ้งของหาย</Link>
+                <Link to="/reportfound" className="inline-flex items-center justify-center bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 text-xs sm:text-sm rounded-xl font-semibold transition">แจ้งพบของ</Link>
+              </EmptyState>
+            ) : activeTab === "success" ? (
+              <EmptyState
+                icon={PackageSearch}
+                title="ยังไม่มีเคสที่ปิดแล้ว"
+                description="เมื่อพบเจ้าของหรือได้ของคืนแล้ว ประกาศนั้นจะมาอยู่ที่นี่"
+              />
+            ) : (
+              <EmptyState icon={PackageSearch} title="ยังไม่มีประกาศในหมวดนี้" />
+            )
           )}
 
           {!itemsLoading && filteredItems.length > 0 && (
@@ -477,7 +492,12 @@ export default function Profile() {
                     </div>
                     <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-gray-500">
                       <Clock size={13} className="flex-shrink-0" />
-                      <span>{item.created_at ? formatRelativeTime(item.created_at) : "-"}</span>
+                      {/* เคสที่จบแล้วโชว์เวลาที่จบเคส (resolved_at) / ถ้าเป็นโพสต์เก่าที่ยังไม่มีค่านี้ หรือยังไม่จบ โชว์เวลาที่ประกาศเหมือนเดิม */}
+                      <span>
+                        {item.status === "matched" && item.resolved_at
+                          ? `จบเคส ${formatRelativeTime(item.resolved_at)}`
+                          : item.created_at ? formatRelativeTime(item.created_at) : "-"}
+                      </span>
                     </div>
                   </div>
                 </div>

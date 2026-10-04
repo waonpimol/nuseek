@@ -14,9 +14,11 @@ import {
   MapPin,
   Menu,
   Clock,
-  X
+  X,
+  SearchX
 } from "lucide-react";
 import { searchByImage } from "../services/api";
+import EmptyState from "../components/EmptyState";
 import { getPlaceholderImage } from "../utils/placeholder";
 import { useNotifications } from "../hooks/useNotifications";
 import { formatRelativeTime } from "../utils/format";
@@ -317,9 +319,14 @@ export default function SearchByImage() {
             </h3>
 
             {results.length === 0 ? (
-              <div className="text-center text-gray-400 text-sm py-10 sm:py-16 bg-white rounded-2xl border border-gray-100">
-                ไม่พบไอเทมที่คล้ายกันในระบบ
-              </div>
+              <EmptyState
+                icon={SearchX}
+                title="ไม่พบสิ่งของที่คล้ายกันในระบบ"
+                description="ลองถ่ายรูปใหม่ให้เห็นสิ่งของชัดขึ้น หรือแจ้งของหายไว้ ระบบจะแจ้งเตือนเมื่อมีคนพบของที่ตรงกัน"
+                className="bg-white rounded-2xl border border-gray-100"
+              >
+                <Link to="/reportlost" className="inline-flex items-center justify-center bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-xs sm:text-sm rounded-xl font-semibold transition">แจ้งของหาย</Link>
+              </EmptyState>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
                 {results.map((item) => (

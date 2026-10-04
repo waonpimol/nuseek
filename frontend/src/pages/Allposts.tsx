@@ -11,7 +11,9 @@ import {
 	Search,
 	SlidersHorizontal,
 	Menu,
-	X
+	X,
+	SearchX,
+	PackageSearch
 } from "lucide-react";
 import { getItems } from "../services/api";
 import { formatRelativeTime } from "../utils/format";
@@ -20,6 +22,7 @@ import { LOCATIONS } from "../utils/locations";
 import { useNotifications } from "../hooks/useNotifications";
 import { getAvatarColor, getAvatarInitial } from "../utils/avatar";
 import PostSkeletonList from "../components/PostSkeleton";
+import EmptyState from "../components/EmptyState";
 
 // แปลง type จาก DB ("lost"/"found") เป็นข้อความไทยที่ UI เดิมใช้อยู่
 const typeLabel = (type: string) => (type === "lost" ? "ของหาย" : "ของที่พบ");
@@ -98,6 +101,16 @@ export default function AllPosts() {
 
 		return matchesTab && matchesQuery && matchesLocation;
 	});
+
+	// มีตัวกรอง/คำค้นอยู่ไหม — ใช้แยกว่า "ไม่เจอเพราะกรอง" หรือ "ยังไม่มีประกาศเลย"
+	const hasActiveFilter =
+		activeTab !== "ทั้งหมด" || searchQuery.trim() !== "" || selectedLocation !== "all";
+
+	const clearFilters = () => {
+		setActiveTab("ทั้งหมด");
+		setSearchQuery("");
+		setSelectedLocation("all");
+	};
 
 	return (
 		<div className="min-h-screen bg-cream antialiased">
@@ -290,11 +303,7 @@ export default function AllPosts() {
 						</div>
 
 						<button
-							onClick={() => {
-								setActiveTab("ทั้งหมด");
-								setSearchQuery("");
-								setSelectedLocation("all");
-							}}
+							onClick={clearFilters}
 							className="md:col-span-2 flex items-center justify-center gap-1.5 sm:gap-2 border border-gray-200 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-sm hover:bg-gray-50 text-gray-700 font-medium transition shadow-sm"
 						>
 							<SlidersHorizontal size={14} />
@@ -313,7 +322,24 @@ export default function AllPosts() {
 				)}
 
 				{!loading && !error && filteredPosts.length === 0 && (
-					<div className="text-center text-gray-400 py-16">ยังไม่มีประกาศในหมวดนี้</div>
+					hasActiveFilter ? (
+						<EmptyState
+							icon={SearchX}
+							title="ไม่พบประกาศที่ตรงกับตัวกรอง"
+							description="ลองเปลี่ยนคำค้นหา เลือกสถานที่อื่น หรือล้างตัวกรองเพื่อดูประกาศทั้งหมด"
+						>
+							<button onClick={clearFilters} className="inline-flex items-center justify-center bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-xs sm:text-sm rounded-xl font-semibold transition">ล้างตัวกรอง</button>
+						</EmptyState>
+					) : (
+						<EmptyState
+							icon={PackageSearch}
+							title="ยังไม่มีประกาศในระบบ"
+							description="เป็นคนแรกที่ช่วยให้ของกลับถึงเจ้าของ แจ้งของหายหรือแจ้งพบของได้เลย"
+						>
+							<Link to="/reportlost" className="inline-flex items-center justify-center bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-xs sm:text-sm rounded-xl font-semibold transition">แจ้งของหาย</Link>
+							<Link to="/reportfound" className="inline-flex items-center justify-center bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 text-xs sm:text-sm rounded-xl font-semibold transition">แจ้งพบของ</Link>
+						</EmptyState>
+					)
 				)}
 
 				{/* ---- ส่วนแสดงรายการประกาศ (Grid Cards) ---- */}

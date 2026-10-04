@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import NotFound from './pages/Notfound';
 import Profile from './pages/Profile';
 import EditProfile from './pages/EditProfile';
 import Allposts from './pages/Allposts';
@@ -31,6 +32,8 @@ function App() {
       <Route path="/editprofile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
       <Route path="/reportfound" element={<ProtectedRoute><ReportFound /></ProtectedRoute>} />
       <Route path="/reportlost" element={<ProtectedRoute><ReportLost /></ProtectedRoute>} />
+      {/* URL ที่ไม่มีในระบบ ต้องอยู่ท้ายสุด */}
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

@@ -19,6 +19,7 @@ import { useNotifications } from "../hooks/useNotifications";
 import { formatRelativeTime } from "../utils/format";
 import ResultModal from "../components/ResultModal";
 import Spinner from "../components/Spinner";
+import { useToast } from "../components/Toast";
 
 // สีคงที่ตามชื่อ (hash) — คนเดิมได้สีเดิมเสมอ ไม่ต้องเก็บสีลง DB เพิ่ม
 const getAvatarColor = (name: string) => {
@@ -73,6 +74,7 @@ const AVATAR_BUCKET = "avatars";
 
 export default function EditProfile() {
 	const navigate = useNavigate();
+	const { showToast } = useToast();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [loading, setLoading] = useState<boolean>(true);
 	const [saving, setSaving] = useState<boolean>(false);
@@ -192,6 +194,7 @@ export default function EditProfile() {
 			if (updateError) throw updateError;
 
 			setAvatarUrl(newAvatarUrl);
+			showToast("อัปเดตรูปโปรไฟล์แล้ว");
 		} catch (error: any) {
 			setResultModal({ success: false, message: "อัปโหลดรูปไม่สำเร็จ: " + error.message });
 		} finally {
@@ -214,6 +217,7 @@ export default function EditProfile() {
 			if (error) throw error;
 
 			setAvatarUrl(null);
+			showToast("ลบรูปโปรไฟล์แล้ว");
 		} catch (error: any) {
 			setResultModal({ success: false, message: "ลบรูปไม่สำเร็จ: " + error.message });
 		} finally {
@@ -244,7 +248,9 @@ export default function EditProfile() {
 
 			if (error) throw error;
 
-			setResultModal({ success: true, message: "บันทึกการเปลี่ยนแปลงทั้งหมดเรียบร้อยแล้ว", goToProfile: true });
+			// บันทึกสำเร็จ: toast แล้วกลับหน้าโปรไฟล์ทันที ไม่ต้องให้กดปิด popup ก่อน (Provider อยู่ระดับแอป toast จึงอยู่ข้ามหน้า)
+			showToast("บันทึกการเปลี่ยนแปลงเรียบร้อยแล้ว");
+			navigate("/profile");
 		} catch (error: any) {
 			// ดักจับ error เฉพาะจาก CHECK constraint ที่ตั้งไว้ใน Supabase (phone_number_digits_only)
 			// แล้วแปลงเป็นข้อความไทยที่เข้าใจง่าย แทนที่จะโชว์ error ดิบๆ จากฐานข้อมูล

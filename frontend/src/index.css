@@ -36,3 +36,22 @@
 body {
     font-family: "Kanit", sans-serif;
 }
+
+/* วงโฟกัสตอนใช้คีย์บอร์ด (กด Tab) — โชว์เฉพาะ :focus-visible คือไม่โผล่ตอนคลิกเมาส์/แตะจอ
+   อยู่ใน @layer base เพื่อให้ utility ของ Tailwind ชนะ (ช่องกรอกที่ใช้ outline-none + focus:ring อยู่แล้วจะไม่ซ้อนกัน) */
+@layer base {
+  :where(a, button, summary, [role="button"], input, select, textarea):focus-visible {
+    outline: 2px solid var(--color-orange-500);
+    outline-offset: 2px;
+  }
+}
+
+/* toast เลื่อนขึ้นเบาๆ ตอนโผล่ (ปิดอนิเมชันถ้าผู้ใช้ตั้งค่าลดการเคลื่อนไหว) */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.toast-in { animation: toast-in 0.2s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .toast-in { animation: none; }
+}
