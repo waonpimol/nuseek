@@ -36,8 +36,6 @@ def attach_image_url(row: dict) -> dict:
     """เติมฟิลด์ image_url (คำนวณจาก image_path) ให้ row ที่ดึงมาจาก DB ก่อนส่งออกไปให้ frontend"""
     if row:
         row["image_url"] = get_image_url(row.get("image_path"))
-        # หลายรูป: image_paths คือรูปทั้งหมด (รูปแรก = รูปปก ตรงกับ image_path)
-        # โพสต์เก่า/ผลจาก search_items ไม่มี image_paths → ใช้รูปปกรูปเดียวแทน
         paths = row.get("image_paths") or ([row["image_path"]] if row.get("image_path") else [])
         row["image_urls"] = [get_image_url(p) for p in paths]
     return row
@@ -71,7 +69,7 @@ def insert_item_direct(item_type, title, description, image_path, location, embe
 # SEARCH SIMILAR ITEMS (plain function, ไม่ผ่าน ADK/LLM)
 # หา item ประเภทตรงข้าม (lost หา found, found หา lost) ที่คล้ายกันด้วย embedding ที่คำนวณไว้แล้ว
 # ==========================================
-def search_similar_items(current_type, embedding, top_k=5, threshold=0.6):
+def search_similar_items(current_type, embedding, top_k=5, threshold=0.7):
     if not embedding:
         return []
 
@@ -98,104 +96,6 @@ def search_similar_items(current_type, embedding, top_k=5, threshold=0.6):
     rows = result.data or []
     return [attach_image_url(x) for x in rows if x.get("score", 0) >= threshold]
 
-
-# ==========================================
-# INSERT ITEM (เวอร์ชัน ADK tool — เก็บไว้เผื่อ agent อื่นเรียกใช้ ปัจจุบัน /report ไม่ได้ใช้แล้ว)
-# ==========================================
-def insert_item(item_type, title, description, contact_phone, tool_context: ToolContext):
-    """
-    บันทึก item ลง Supabase
-    โดยดึง embedding, image_path, location และ user_id จาก ADK state
-    (ไม่รับเป็นพารามิเตอร์จาก LLM เพื่อกันไม่ให้ LLM พิมพ์/เดาผิดหรือส่งค่าว่างมาโดยไม่ตั้งใจ
-    ค่าพวกนี้มาจากตัวเลือกจริงที่ผู้ใช้กรอกในฟอร์มเสมอ)
-    """
-
-    # ดึง embedding จาก state
-    embedding = tool_context.state.get("embedding")
-
-    # ตรวจสอบ embedding
-    if not embedding:
-        return {
-            "success": False,
-            "error": "ไม่พบ embedding ใน state"
-        }
-
-    # ดึง image_path จาก state (ตั้งค่าไว้ล่วงหน้าตอนสร้าง session ใน routes/agent.py)
-    image_path = tool_context.state.get("image_path", "")
-
-    # ดึง location ที่ผู้ใช้เลือกจาก dropdown ในฟอร์มจาก state เช่นเดียวกัน
-    location = tool_context.state.get("location", "")
-
-    # ดึง user_id ของผู้ประกาศจาก state เช่นเดียวกัน (None ถ้าไม่ได้ login)
-    reporter_user_id = tool_context.state.get("reporter_user_id")
-
-    data = {
-        "type": item_type,
-        "title": title,
-        "description": description,
-        "image_path": image_path,
-        "location": location,
-        "contact_phone": contact_phone,
-        "embedding": embedding,
-        "status": "active",
-        "user_id": reporter_user_id,
-    }
-
-    result = supabase.table("items").insert(data).execute()
-    return result.data
-
-
-# ==========================================
-# SEARCH VECTOR
-# ==========================================
-def search_vector(
-    current_type,
-    tool_context: ToolContext,
-    top_k=5,
-    threshold=0.7
-):
-
-     # ดึง embedding จาก state
-    embedding = tool_context.state.get("embedding")
-
-    if not embedding:
-        return []
-
-    # กำหนดประเภทที่ต้องการค้นหา
-    if current_type == "lost":
-        target = "found"
-
-    elif current_type == "found":
-        target = "lost"
-
-    else:
-        raise ValueError(
-            "current_type must be lost or found"
-        )
-
-    # ค้นหาด้วย pgvector
-    result = (
-        supabase
-        .rpc(
-            "search_items",
-            {
-                "query_embedding": embedding,
-                "match_type": target,
-                "match_count": top_k
-            }
-        )
-        .execute()
-    )
-
-    rows = result.data or []
-
-    # กรองตาม threshold แล้วเติม image_url ให้แต่ละรายการ
-    return [
-        attach_image_url(x)
-        for x in rows
-        if x.get("score", 0) >= threshold
-    ]
-
 # ==========================================
 # SEARCH BY EMBEDDING (plain function, ไม่ผ่าน ADK state)
 # ใช้โดย endpoint /search-by-image ที่ไม่ต้องพึ่ง LLM agent
@@ -208,7 +108,7 @@ def get_item_ids_by_user(user_id: str) -> list:
     return [r["id"] for r in (result.data or [])]
 
 
-def search_by_embedding(embedding: list, top_k: int = 10, threshold: float = 0.3, exclude_item_ids=None):
+def search_by_embedding(embedding: list, top_k: int = 10, threshold: float = 0.7, exclude_item_ids=None):
     """
     ค้นหาไอเทมที่คล้ายกัน "ข้ามทั้งสองประเภท" (lost + found)
     รับ embedding ตรง ๆ เป็น argument (ไม่ต้องมี ToolContext/session)
@@ -247,7 +147,7 @@ def search_by_embedding(embedding: list, top_k: int = 10, threshold: float = 0.3
 
 
 # ==========================================
-# SEARCH LOGS (เก็บไว้ debug ย้อนหลัง + ใช้เป็นหลักฐานตอนเขียนบทประเมินผล thesis)
+# SEARCH LOGS 
 # ==========================================
 def log_search_query(caption_en: str, caption_th: str, candidates: list, shown_count: int):
     """บันทึกทุกครั้งที่มีคนค้นหาด้วยรูป: BLIP caption ดิบ, คำแปลไทย, candidate ทุกตัวที่เจอ
