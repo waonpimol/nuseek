@@ -5,10 +5,9 @@ import uuid
 
 from fastapi import APIRouter, UploadFile, File, Form, BackgroundTasks
 
-from nuseek.tools.blip_tool import generate_caption
 from nuseek.tools.embedding_tool import embed_text
 from nuseek.tools.supabase_tool import search_by_embedding, log_search_query, get_item_ids_by_user
-from nuseek.tools.verification_agent import translate_caption_to_thai, verify_candidates
+from nuseek.tools.verification_agent import describe_image, verify_candidates
 
 router = APIRouter()
 
@@ -36,13 +35,14 @@ async def search_by_image(
     มี AI Agent ตรวจสอบซ้ำ (verification agent, ดู nuseek/tools/verification_agent.py) เพิ่มเข้ามา
     แต่เรียกเฉพาะกับ candidate ที่ similarity_score ยังไม่ถึงเกณฑ์ที่เชื่อถือได้เท่านั้น:
 
-      1) แคปรูปด้วย BLIP (อังกฤษ)
-      2) แปล caption เป็นไทยด้วย Gemini ก่อนเอาไป embed (กัน embedding เพี้ยนจากการปนภาษา)
+      1) ส่งรูปให้ Gemini บรรยายเฉพาะสิ่งของหลัก (ประเภท/ยี่ห้อ/สี/ลักษณะเด่น) เป็นภาษาไทย
+         ไม่เอาคน/มือ/พื้นหลัง (ถ้า Gemini ล้ม fallback เป็น BLIP + แปล)
+      2) เอาคำบรรยายไทยไป embed
       3) ค้นหาด้วย vector search แบบ "recall กว้าง" (threshold ต่ำ = 0.3) ไม่ตัดทิ้งด้วยตัวเลขตรง ๆ
       4) แบ่ง candidate เป็น 2 กลุ่มตาม similarity_score:
          - score >= 0.7 (HIGH_CONFIDENCE_THRESHOLD) → เชื่อถือได้เลย โชว์ตรง ๆ ไม่ต้องพึ่ง agent
          - score < 0.7 → ยังไม่ทิ้ง ส่งให้ Gemini อ่าน title/description/location เทียบกับ
-           คำอธิบายรูปที่ผู้ใช้ถ่ายมาอีกที (เผื่อ BLIP แคปรูปออกมาไม่ตรงทำให้ embedding เพี้ยน)
+           คำอธิบายรูปที่ผู้ใช้ถ่ายมาอีกที (เผื่อคำบรรยายรูปออกมาไม่ตรงทำให้ embedding เพี้ยน)
            ถ้า agent เห็นว่าตรงกันจริงถึงจะเอามาโชว์ ถ้าไม่ตรง/agent ตัดสินไม่ได้ก็ไม่โชว์
       5) รวมผลทั้งสองกลุ่ม เรียงตาม score เอาแค่ 5 อันดับแรก
       6) log การค้นหาครั้งนี้ลง search_logs แบบ background task (ไม่บล็อกการตอบกลับผู้ใช้)
@@ -59,11 +59,10 @@ async def search_by_image(
         shutil.copyfileobj(image.file, buffer)
 
     try:
-        caption_result = generate_caption(tmp_path)
-        caption_en = caption_result.get("caption", "")
-
-        # แปล caption อังกฤษ -> ไทย ก่อน embed
-        caption_th = translate_caption_to_thai(caption_en)
+        # ให้ Gemini ดูรูปแล้วบรรยายเฉพาะสิ่งของหลักเป็นไทย (fallback เป็น BLIP + แปล ถ้า Gemini ล้ม)
+        described = describe_image(tmp_path)
+        caption_en = described.get("en", "")
+        caption_th = described.get("th", "")
 
         embedding = embed_text(caption_th or caption_en)
 

@@ -36,6 +36,10 @@ def attach_image_url(row: dict) -> dict:
     """เติมฟิลด์ image_url (คำนวณจาก image_path) ให้ row ที่ดึงมาจาก DB ก่อนส่งออกไปให้ frontend"""
     if row:
         row["image_url"] = get_image_url(row.get("image_path"))
+        # หลายรูป: image_paths คือรูปทั้งหมด (รูปแรก = รูปปก ตรงกับ image_path)
+        # โพสต์เก่า/ผลจาก search_items ไม่มี image_paths → ใช้รูปปกรูปเดียวแทน
+        paths = row.get("image_paths") or ([row["image_path"]] if row.get("image_path") else [])
+        row["image_urls"] = [get_image_url(p) for p in paths]
     return row
 
 
@@ -43,7 +47,7 @@ def attach_image_url(row: dict) -> dict:
 # INSERT ITEM (plain function, ไม่ผ่าน ADK/LLM)
 # ใช้โดย /report ตรงๆ เพราะขั้นตอนนี้ตายตัวอยู่แล้ว ไม่มีอะไรให้ AI ต้อง "ตัดสินใจ"
 # ==========================================
-def insert_item_direct(item_type, title, description, image_path, location, embedding, user_id):
+def insert_item_direct(item_type, title, description, image_path, location, embedding, user_id, image_paths=None):
     if not embedding:
         return {"success": False, "error": "ไม่พบ embedding"}
 
@@ -51,7 +55,8 @@ def insert_item_direct(item_type, title, description, image_path, location, embe
         "type": item_type,
         "title": title,
         "description": description,
-        "image_path": image_path,
+        "image_path": image_path,          # รูปปก (รูปแรก) — การ์ด/ผลค้นหาใช้ตัวนี้
+        "image_paths": image_paths or ([image_path] if image_path else []),  # รูปทั้งหมด
         "location": location,
         "embedding": embedding,
         "status": "active",
@@ -428,7 +433,7 @@ def update_item_status(item_id, status):
     # บันทึกเวลาที่จบเคส (resolved_at) ตอนเปลี่ยนเป็น matched — ทุกทางที่ปิดเคสผ่านฟังก์ชันนี้ที่เดียว
     # (ยืนยัน/ส่งมอบแมทช์, ยืนยันการอ้างสิทธิ์, ปิดโพสต์ของผู้อ้างสิทธิ์) ใช้เวลานี้แสดง "จบเคส x ที่แล้ว"
     # และคำนวณระยะเวลาที่เคสใช้จนจบ (resolved_at - created_at) ได้
-    # ต้องรัน migrations/007_items_resolved_at.sql ก่อน ไม่งั้นคอลัมน์นี้ยังไม่มีและ update จะ error
+    # ต้องมีคอลัมน์ items.resolved_at ในฐานข้อมูลก่อน (ดูนิยามตารางใน migrations/001_tables.sql)
     if status == "matched":
         update["resolved_at"] = datetime.now(timezone.utc).isoformat()
     result = (
@@ -600,6 +605,81 @@ def claim_item(item_id: str, claimant_user_id: str):
     )
 
     return {"success": True, "claim_id": claim_id}
+
+
+# ==========================================
+# CLOSE OWN LOST POST (เจ้าของเจอของที่หายเองแล้ว ปิดเคสเอง)
+# ==========================================
+def close_own_item(item_id: str, user_id: str):
+    """เจ้าของโพสต์ "ของหาย" กดปิดเคสเอง เพราะเจอของที่หายแล้วโดยไม่ผ่านระบบ
+    (ไม่งั้นโพสต์ค้าง active ตลอดไป ยังถูกแมทช์/ถูกอ้างสิทธิ์ต่อได้ทั้งที่ได้ของคืนแล้ว)
+    - ทำได้เฉพาะเจ้าของโพสต์ ประเภท 'lost' ที่ยังไม่จบเคส
+    - แมทช์ที่ค้างอยู่ (pending/confirmed) → 'rejected' และแจ้งผู้แจ้งพบว่าเจ้าของได้ของคืนแล้ว
+      (โพสต์ของผู้แจ้งพบยังเป็น active รอเจ้าของที่ถูกต้องต่อไป)
+    - คำอ้างสิทธิ์ที่ค้างอยู่ (pending) → 'cancelled' และแจ้งผู้ที่แจ้งว่าเจอของ
+    - สุดท้ายเปลี่ยนโพสต์เป็น 'matched' ผ่าน update_item_status (บันทึก resolved_at ด้วย)"""
+    item_res = (
+        supabase.table("items").select("id, type, title, user_id, status")
+        .eq("id", item_id).maybe_single().execute()
+    )
+    item = item_res.data if item_res else None
+    if not item:
+        return {"success": False, "error": "ไม่พบโพสต์นี้"}
+    if not user_id or item.get("user_id") != user_id:
+        return {"success": False, "error": "ปิดเคสได้เฉพาะเจ้าของโพสต์เท่านั้น"}
+    if item.get("type") != "lost":
+        return {"success": False, "error": "ปิดเคสเองได้เฉพาะโพสต์ของหาย"}
+    if item.get("status") == "matched":
+        return {"success": False, "error": "เคสนี้ปิดไปแล้ว"}
+
+    title = item.get("title") or "สิ่งของนี้"
+
+    # 1) ยกเลิกแมทช์ที่ค้างอยู่
+    matches = (
+        supabase.table("matches").select("id, found_item_id")
+        .eq("lost_item_id", item_id).in_("status", ["pending", "confirmed"]).execute()
+    ).data or []
+    found_owner_notices = []
+    for m in matches:
+        supabase.table("matches").update({"status": "rejected"}).eq("id", m["id"]).execute()
+        found_res = (
+            supabase.table("items").select("user_id, title")
+            .eq("id", m["found_item_id"]).maybe_single().execute()
+        )
+        found = found_res.data if found_res else None
+        if found and found.get("user_id"):
+            found_owner_notices.append((found["user_id"], m["found_item_id"], found.get("title") or "สิ่งของนี้"))
+
+    # 2) ยกเลิกคำอ้างสิทธิ์ที่ค้างอยู่ (claims.status ไม่มี check constraint ใช้ 'cancelled' ได้)
+    claims = (
+        supabase.table("claims").select("id, claimant_user_id")
+        .eq("item_id", item_id).eq("status", "pending").execute()
+    ).data or []
+    for c in claims:
+        supabase.table("claims").update({"status": "cancelled"}).eq("id", c["id"]).execute()
+
+    # 3) ปิดเคสจริง (บันทึก resolved_at)
+    update_item_status(item_id, "matched")
+
+    # 4) แจ้งอีกฝั่ง — ทำหลังปิดเคสสำเร็จแล้ว ล้มเหลวก็ไม่ย้อนการปิดเคส
+    for owner_id, found_item_id, found_title in found_owner_notices:
+        try:
+            create_notification(
+                user_id=owner_id, item_id=found_item_id, matched_item_id=None,
+                message=f'เจ้าของประกาศ "{title}" แจ้งว่าได้ของคืนแล้ว แมทช์กับ "{found_title}" ของคุณจึงถูกยกเลิก ประกาศของคุณยังเปิดอยู่ รอเจ้าของที่ถูกต้องต่อไป',
+            )
+        except Exception as e:
+            print(f"close_own_item: notify found owner failed: {e}")
+    for c in claims:
+        try:
+            create_notification(
+                user_id=c["claimant_user_id"], item_id=item_id, matched_item_id=None,
+                message=f'เจ้าของประกาศ "{title}" แจ้งว่าได้ของคืนแล้ว ขอบคุณที่ช่วยตามหา',
+            )
+        except Exception as e:
+            print(f"close_own_item: notify claimant failed: {e}")
+
+    return {"success": True, "cancelled_matches": len(matches), "cancelled_claims": len(claims)}
 
 
 # ==========================================

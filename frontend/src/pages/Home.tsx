@@ -198,7 +198,7 @@ export default function HomePage() {
         </h2>
 
         <p className="mt-2 sm:mt-5 text-xs sm:text-base text-gray-600 ">
-          ค้นหาของหายภายในมหาวิทยาลัยด้วย AI Agent
+          ถ่ายรูปหรือบอกลักษณะ แล้วให้ AI ช่วยจับคู่กับของที่มีคนพบ
         </p>
 
         {/* Buttons */}

@@ -1,3 +1,4 @@
+import mimetypes
 import os
 import shutil
 import tempfile
@@ -17,6 +18,8 @@ from nuseek.tools.embedding_tool import embed_text
 
 router = APIRouter()
 
+MAX_IMAGES = 5  # จำนวนรูปสูงสุดต่อ 1 ประกาศ (ต้องตรงกับค่าในหน้า ReportLost/ReportFound)
+
 
 def upload_image_to_supabase(file_path: str, filename: str) -> str:
     """อัปโหลดรูปขึ้น Supabase Storage แล้วคืน "path" ของอ็อบเจกต์ในบัคเก็ต (ไม่ใช่ URL เต็ม)"""
@@ -24,7 +27,7 @@ def upload_image_to_supabase(file_path: str, filename: str) -> str:
         supabase.storage.from_(BUCKET_NAME).upload(
             filename,
             f,
-            {"content-type": "image/jpeg"},
+            {"content-type": mimetypes.guess_type(filename)[0] or "image/jpeg"},
         )
     return filename
 
@@ -36,7 +39,8 @@ async def report_item(
     details: str = Form(""),
     location: str = Form(""),         # สถานที่ที่ผู้ใช้เลือกจาก dropdown ในฟอร์ม
     user_id: str = Form(""),          # uuid ของผู้ login ที่ส่งมาจาก frontend (supabase.auth.getUser())
-    image: UploadFile | None = File(None),
+    images: list[UploadFile] = File(default=[]),   # แนบได้หลายรูป (สูงสุด MAX_IMAGES) รูปแรก = รูปปก
+    image: UploadFile | None = File(None),         # ช่องเดิมรูปเดียว เก็บไว้ให้หน้าเว็บเวอร์ชันเก่ายังใช้ได้
 ):
     """
     รับข้อมูลจากฟอร์ม ReportLost / ReportFound แล้วประมวลผลตรง ๆ แบบ deterministic
@@ -49,22 +53,30 @@ async def report_item(
     ต้องพึ่งภาพอย่างเดียว ไม่กระทบกับ endpoint นี้
     """
 
-    local_tmp_path = None
-    storage_image_path = ""
+    # 1) ถ้ามีรูปแนบ: เซฟไฟล์ชั่วคราวทีละรูป + อัปโหลดขึ้น Storage (รูปไหนอัปโหลดไม่สำเร็จข้ามไป รูปอื่นยังใช้ได้)
+    files = [f for f in images if f is not None and (f.filename or "")]
+    if image is not None and (image.filename or ""):
+        files.append(image)
+    if len(files) > MAX_IMAGES:
+        raise HTTPException(status_code=400, detail=f"แนบรูปได้สูงสุด {MAX_IMAGES} รูปต่อประกาศ")
 
-    # 1) ถ้ามีรูปแนบ: เซฟไฟล์ชั่วคราว + อัปโหลดขึ้น Storage
-    if image is not None:
-        suffix = os.path.splitext(image.filename or "")[1] or ".jpg"
+    storage_image_paths = []
+    for f in files:
+        suffix = os.path.splitext(f.filename or "")[1] or ".jpg"
         local_tmp_path = os.path.join(tempfile.gettempdir(), f"{uuid.uuid4()}{suffix}")
-        with open(local_tmp_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
-
         try:
-            storage_image_path = upload_image_to_supabase(
-                local_tmp_path, os.path.basename(local_tmp_path)
+            with open(local_tmp_path, "wb") as buffer:
+                shutil.copyfileobj(f.file, buffer)
+            storage_image_paths.append(
+                upload_image_to_supabase(local_tmp_path, os.path.basename(local_tmp_path))
             )
         except Exception as e:
             print(f"[upload_image_to_supabase] error: {e}")
+        finally:
+            if os.path.exists(local_tmp_path):
+                os.remove(local_tmp_path)
+
+    storage_image_path = storage_image_paths[0] if storage_image_paths else ""   # รูปปก
 
     # 2) รวมข้อความทั้งหมดไว้ใช้สร้าง embedding — ใช้แค่ข้อความที่ผู้ใช้พิมพ์เอง ไม่ผ่าน BLIP แล้ว
     combined_text = " ".join(filter(None, [item_name.strip(), details.strip()])).strip()
@@ -85,16 +97,13 @@ async def report_item(
             location=location,
             embedding=embedding,
             user_id=user_id or None,
+            image_paths=storage_image_paths,
         )
     except Exception as e:
-        # ลบไฟล์ชั่วคราวทิ้งก่อน ไม่ว่าจะ error หรือไม่
-        if local_tmp_path and os.path.exists(local_tmp_path):
-            os.remove(local_tmp_path)
+        print(f"[insert_item_direct] error: {e}")
         raise HTTPException(status_code=500, detail="บันทึกประกาศไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")
 
-    # 6) ลบไฟล์ชั่วคราวทิ้ง
-    if local_tmp_path and os.path.exists(local_tmp_path):
-        os.remove(local_tmp_path)
+    # 6) (ไฟล์ชั่วคราวลบไปแล้วในขั้นตอนที่ 1 ทีละรูป)
 
     if not insert_result:
         return {

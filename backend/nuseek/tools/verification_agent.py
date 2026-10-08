@@ -1,17 +1,54 @@
 import json
+import mimetypes
 
 from google import genai
+from google.genai import types
 
 # ==========================================
 # LLM VERIFICATION AGENT — ใช้เฉพาะที่ /search-by-image เท่านั้น
 # ==========================================
 #
 # หน้าที่ 2 อย่าง:
-#   1) translate_caption_to_thai — แปล caption อังกฤษจาก BLIP เป็นไทย ก่อนเอาไป embed     
+#   1) describe_image — ให้ Gemini ดูรูปแล้วบรรยายเฉพาะสิ่งของหลักเป็นภาษาไทย (ไม่เอาคน/มือ/พื้นหลัง)
+#      ถ้า Gemini ล้มเหลว fallback ไปใช้ BLIP + translate_caption_to_thai
 #   2) verify_candidates — พิจารณา candidate ที่ vector search เจอมาอีกที โดยดู "ข้อความ" จริง ๆ
 _genai_client = genai.Client()
 
 _MODEL = "gemini-3.5-flash-lite"
+
+
+_DESCRIBE_PROMPT = (
+    "ดูรูปนี้แล้วบรรยาย 'สิ่งของหลักเพียงชิ้นเดียว' ที่เป็นประเด็นของรูป (เช่น ของหายหรือของที่เก็บได้) "
+    "ห้ามพูดถึงคน มือ พื้นหลัง หรือสถานที่ ให้ระบุเท่าที่เห็นจริง: ประเภทของ ยี่ห้อ/โลโก้ (ถ้าเห็น) รุ่น (ถ้าเห็น) "
+    "สี วัสดุ เคส/สติกเกอร์/ลวดลาย และตำหนิหรือลักษณะเด่น ห้ามเดาสิ่งที่มองไม่เห็น\n"
+    'ตอบเป็น JSON เท่านั้น รูปแบบ {"th": "คำบรรยายภาษาไทย 1 ประโยคสั้น ๆ เหมือนที่คนพิมพ์แจ้งของหาย", '
+    '"en": "same description in English"}'
+)
+
+
+def describe_image(image_path: str) -> dict:
+    """ให้ Gemini ดูรูปโดยตรงแล้วบรรยายเฉพาะสิ่งของหลัก คืน {"th": ..., "en": ...}
+    ถ้า Gemini error/ตอบไม่ได้ → fallback ไป BLIP + แปล (import แบบ lazy เพื่อไม่โหลดโมเดลตอนเริ่มเซิร์ฟเวอร์)"""
+    try:
+        mime = mimetypes.guess_type(image_path)[0] or "image/jpeg"
+        with open(image_path, "rb") as f:
+            data = f.read()
+        response = _genai_client.models.generate_content(
+            model=_MODEL,
+            contents=[types.Part.from_bytes(data=data, mime_type=mime), _DESCRIBE_PROMPT],
+            config=types.GenerateContentConfig(response_mime_type="application/json"),
+        )
+        parsed = json.loads(response.text or "{}")
+        th = (parsed.get("th") or "").strip()
+        en = (parsed.get("en") or "").strip()
+        if th:
+            return {"th": th, "en": en}
+    except Exception as e:
+        print(f"[describe_image] gemini error, fallback to BLIP: {e}")
+
+    from nuseek.tools.blip_tool import generate_caption
+    caption_en = generate_caption(image_path).get("caption", "")
+    return {"th": translate_caption_to_thai(caption_en), "en": caption_en}
 
 
 def translate_caption_to_thai(caption_en: str) -> str:

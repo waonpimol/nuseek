@@ -120,6 +120,29 @@ export async function completeMatch(matchId: string, userId: string) {
   return await response.json();
 }
 
+export async function closeOwnItem(itemId: string, userId: string) {
+  const formData = new FormData();
+  formData.append("user_id", userId);
+
+  const response = await fetch(`${API}/items/${itemId}/close`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let detail = "ปิดเคสไม่สำเร็จ";
+    try {
+      const errBody = await response.json();
+      if (errBody?.detail) detail = errBody.detail;
+    } catch {
+      // ไม่ใช่ JSON ก็ปล่อยข้อความ default ไว้
+    }
+    throw new Error(detail);
+  }
+
+  return await response.json();
+}
+
 export async function claimItem(itemId: string, userId: string) {
   const formData = new FormData();
   formData.append("user_id", userId);

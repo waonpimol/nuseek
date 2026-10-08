@@ -307,7 +307,18 @@ export default function Profile() {
 
         <div className="bg-white rounded-3xl shadow-sm p-4 sm:p-8">
           {loading ? (
-            <div className="text-center py-4 text-gray-500 animate-pulse">กำลังโหลดข้อมูลโปรไฟล์...</div>
+            <div
+              role="status"
+              aria-label="กำลังโหลดข้อมูลโปรไฟล์"
+              className="flex flex-col md:flex-row items-center gap-3 sm:gap-6 animate-pulse"
+            >
+              <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full bg-gray-200 flex-shrink-0" />
+              <div className="flex-1 w-full flex flex-col items-center md:items-start gap-2.5 sm:gap-3">
+                <div className="h-5 sm:h-7 w-40 sm:w-56 rounded-full bg-gray-200" />
+                <div className="h-3 sm:h-4 w-48 sm:w-64 rounded-full bg-gray-200" />
+              </div>
+              <div className="h-9 sm:h-12 w-full md:w-36 rounded-xl bg-gray-200" />
+            </div>
           ) : (
             <div className="flex flex-col md:flex-row items-center gap-3 sm:gap-6">
 
@@ -345,22 +356,22 @@ export default function Profile() {
 
         <div className="grid grid-cols-4 gap-1.5 sm:gap-5">
           <div className="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-6 shadow-sm text-center">
-            <h3 className="text-lg sm:text-4xl font-bold text-orange-500">{itemsLoading ? "-" : totalCount}</h3>
+            <h3 className="text-lg sm:text-4xl font-bold text-orange-500">{itemsLoading ? <span className="inline-block h-5 sm:h-9 w-8 sm:w-14 rounded-full bg-gray-200 animate-pulse align-middle" /> : totalCount}</h3>
             <p className="text-gray-500 mt-0.5 sm:mt-2 text-[10px] sm:text-base leading-tight">ประกาศทั้งหมด</p>
           </div>
 
           <div className="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-6 shadow-sm text-center">
-            <h3 className="text-lg sm:text-4xl font-bold text-red-500">{itemsLoading ? "-" : lostCount}</h3>
+            <h3 className="text-lg sm:text-4xl font-bold text-red-500">{itemsLoading ? <span className="inline-block h-5 sm:h-9 w-8 sm:w-14 rounded-full bg-gray-200 animate-pulse align-middle" /> : lostCount}</h3>
             <p className="text-gray-500 mt-0.5 sm:mt-2 text-[10px] sm:text-base leading-tight">ของที่หาย</p>
           </div>
 
           <div className="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-6 shadow-sm text-center">
-            <h3 className="text-lg sm:text-4xl font-bold text-sky-500">{itemsLoading ? "-" : foundCount}</h3>
+            <h3 className="text-lg sm:text-4xl font-bold text-sky-500">{itemsLoading ? <span className="inline-block h-5 sm:h-9 w-8 sm:w-14 rounded-full bg-gray-200 animate-pulse align-middle" /> : foundCount}</h3>
             <p className="text-gray-500 mt-0.5 sm:mt-2 text-[10px] sm:text-base leading-tight">ของที่พบ</p>
           </div>
 
           <div className="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-6 shadow-sm text-center">
-            <h3 className="text-lg sm:text-4xl font-bold text-green-500">{itemsLoading ? "-" : matchedCount}</h3>
+            <h3 className="text-lg sm:text-4xl font-bold text-green-500">{itemsLoading ? <span className="inline-block h-5 sm:h-9 w-8 sm:w-14 rounded-full bg-gray-200 animate-pulse align-middle" /> : matchedCount}</h3>
             <p className="text-gray-500 mt-0.5 sm:mt-2 text-[10px] sm:text-base leading-tight">พบเจ้าของแล้ว</p>
           </div>
         </div>

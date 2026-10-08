@@ -3,7 +3,7 @@ from nuseek.tools.supabase_tool import supabase, attach_image_url
 # ระบุ column ที่ต้องใช้จริงๆ ในการแสดงผล (ไม่เอา "embedding" ติดมาด้วย
 # เพราะเป็นเวกเตอร์ตัวเลขขนาดใหญ่ที่ frontend ไม่ได้ใช้เลย แต่ทำให้ query ช้าลงมากถ้าดึงมาทุกครั้ง)
 # ดึงข้อมูลติดต่อทั้งหมดจากโปรไฟล์ผู้ใช้ (users) แทนที่จะเก็บซ้ำเป็น contact_phone ต่อโพสต์
-ITEM_COLUMNS = "id, type, title, description, image_path, location, status, user_id, created_at, resolved_at, users(display_name, avatar_url, phone_number, line_id, facebook_url, instagram_username)"
+ITEM_COLUMNS = "id, type, title, description, image_path, image_paths, location, status, user_id, created_at, resolved_at, users(display_name, avatar_url, phone_number, line_id, facebook_url, instagram_username)"
 
 
 def _attach_reporter_name(row: dict) -> dict:

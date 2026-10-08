@@ -26,9 +26,11 @@ export default function ReportFound() {
 	const [itemName, setItemName] = useState<string>('');
 	const [description, setDescription] = useState<string>('');
 	const [location, setLocation] = useState<string>('');
-	const [selectedImage, setSelectedImage] = useState<File | null>(null);
-	const [imagePreview, setImagePreview] = useState<string | null>(null);
-	const fileInputRef = React.useRef<HTMLInputElement>(null);
+	// แนบได้หลายรูป (รูปแรก = รูปปกที่โชว์ในการ์ด) เก็บไฟล์คู่กับ URL พรีวิวของแต่ละรูป
+	const MAX_IMAGES = 5;
+	const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
+	const fileInputRef = React.useRef<HTMLInputElement>(null);   // เลือกรูปจากเครื่อง (เลือกหลายรูปได้)
+	const cameraInputRef = React.useRef<HTMLInputElement>(null); // เปิดกล้องถ่ายทีละรูป (มือถือ)
 	const [showNoti, setShowNoti] = useState(false);
   const bellButtonRef = useRef<HTMLButtonElement>(null);
   const notifDropdownRef = useRef<HTMLDivElement>(null);
@@ -52,15 +54,31 @@ export default function ReportFound() {
 	const [resultModal, setResultModal] = useState<{ success: boolean; message: string; matchedItemId?: string | null; goToProfile?: boolean } | null>(null);
 
 	const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		if (e.target.files && e.target.files[0]) {
-			const file = e.target.files[0];
-			setSelectedImage(file);
-			setImagePreview(URL.createObjectURL(file));
+		const picked = Array.from(e.target.files || []);
+		e.target.value = ''; // ให้เลือกไฟล์เดิมซ้ำได้หลังลบออก
+		if (picked.length === 0) return;
+
+		const room = MAX_IMAGES - images.length;
+		if (picked.length > room) {
+			setResultModal({ success: false, message: `แนบรูปได้สูงสุด ${MAX_IMAGES} รูปต่อประกาศ` });
 		}
+		const added = picked.slice(0, Math.max(room, 0)).map((file) => ({ file, preview: URL.createObjectURL(file) }));
+		if (added.length > 0) setImages((prev) => [...prev, ...added]);
+	};
+
+	const removeImage = (index: number) => {
+		setImages((prev) => {
+			URL.revokeObjectURL(prev[index].preview);
+			return prev.filter((_, i) => i !== index);
+		});
 	};
 
 	const handleUploadClick = () => {
 		fileInputRef.current?.click();
+	};
+
+	const handleCameraClick = () => {
+		cameraInputRef.current?.click();
 	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -92,7 +110,7 @@ export default function ReportFound() {
 			formData.append('details', description);
 			formData.append('location', location);
 			if (user) formData.append('user_id', user.id);
-			if (selectedImage) formData.append('image', selectedImage);
+			images.forEach(({ file }) => formData.append('images', file));
 
 			const result = await reportItem(formData);
 			setResultModal({
@@ -282,23 +300,39 @@ export default function ReportFound() {
 						</div>
 
 						{/* พรีวิวรูปที่แนบ (ถ้ามี) */}
-						{imagePreview && (
-							<div style={styles.imagePreviewBlock}>
-								<img src={imagePreview} alt="Preview" style={styles.imagePreview} />
-								<button
-									type="button"
-									onClick={() => { setSelectedImage(null); setImagePreview(null); }}
-									style={styles.removeImageBtn}
-								>
-									ลบรูป
-								</button>
+						{images.length > 0 && (
+							<div style={styles.imagePreviewRow}>
+								{images.map((img, i) => (
+									<div key={img.preview} style={styles.imagePreviewBlock}>
+										<img src={img.preview} alt={`รูปที่ ${i + 1}`} style={styles.imagePreview} />
+										{i === 0 && <span style={styles.coverBadge}>รูปปก</span>}
+										<button
+											type="button"
+											onClick={() => removeImage(i)}
+											style={styles.removeImageBtn}
+										>
+											ลบรูป
+										</button>
+									</div>
+								))}
 							</div>
 						)}
 
 						<input
 							type="file"
 							accept="image/*"
+							multiple
 							ref={fileInputRef}
+							onChange={handleImageChange}
+							style={{ display: 'none' }}
+						/>
+
+						{/* ช่องสำหรับถ่ายรูป: capture="environment" ให้มือถือเปิดกล้องหลังทันที (บนคอมจะเป็นการเลือกไฟล์ปกติ) */}
+						<input
+							type="file"
+							accept="image/*"
+							capture="environment"
+							ref={cameraInputRef}
 							onChange={handleImageChange}
 							style={{ display: 'none' }}
 						/>
@@ -308,14 +342,14 @@ export default function ReportFound() {
 						{/* แถบเครื่องมือแนบรูป */}
 						<div style={styles.toolsContainer}>
 							<div style={styles.toolsRow}>
-								<div style={styles.toolItem} onClick={handleUploadClick}>
+								<div style={styles.toolItem} onClick={handleCameraClick}>
 									<Camera size={18} style={styles.toolIconBlue} />
-									<span style={styles.toolTextBlue}>ถ่าย/แนบรูป</span>
+									<span style={styles.toolTextBlue}>ถ่ายรูป</span>
 								</div>
 
 								<div style={styles.toolItem} onClick={handleUploadClick}>
 									<ImageIcon size={18} style={styles.toolIconOrange} />
-									<span style={styles.toolTextOrange}>อัปโหลดรูปภาพ</span>
+									<span style={styles.toolTextOrange}>อัปโหลดรูปภาพ ({images.length}/{MAX_IMAGES})</span>
 								</div>
 							</div>
 
@@ -405,8 +439,10 @@ const styles: Record<string, React.CSSProperties> = {
 	inputBlock: { width: '100%', border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', marginBottom: '10px' },
 	textareaWhite: { width: '100%', padding: 'clamp(10px, 3.5vw, 16px)', backgroundColor: '#FFFFFF', border: 'none', fontSize: 'clamp(12px, 3vw, 14px)', outline: 'none', resize: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: '#4A5568', lineHeight: '1.6' },
 
-	imagePreviewBlock: { position: 'relative', width: 'clamp(100px, 30vw, 140px)', height: 'clamp(100px, 30vw, 140px)', borderRadius: '12px', overflow: 'hidden', marginBottom: '10px', border: '1px solid #E2E8F0' },
+	imagePreviewBlock: { position: 'relative', width: 'clamp(100px, 30vw, 140px)', height: 'clamp(100px, 30vw, 140px)', borderRadius: '12px', overflow: 'hidden', border: '1px solid #E2E8F0' },
 	imagePreview: { width: '100%', height: '100%', objectFit: 'cover' },
+	imagePreviewRow: { display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' },
+	coverBadge: { position: 'absolute', bottom: '4px', left: '4px', backgroundColor: 'rgba(0, 0, 0, 0.6)', color: '#FFFFFF', borderRadius: '6px', padding: '2px 6px', fontSize: '11px' },
 	removeImageBtn: { position: 'absolute', top: '4px', right: '4px', backgroundColor: 'rgba(229, 62, 62, 0.85)', color: '#FFFFFF', border: 'none', borderRadius: '6px', padding: '2px 6px', fontSize: '11px', cursor: 'pointer' },
 
 	divider: { height: '1px', backgroundColor: '#EDF2F7', margin: '18px 0' },

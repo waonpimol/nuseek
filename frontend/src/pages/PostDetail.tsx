@@ -18,7 +18,7 @@ import {
   Link2,
   AtSign
 } from 'lucide-react';
-import { getItem, confirmMatch, rejectMatch, completeMatch, claimItem, confirmClaim } from '../services/api';
+import { getItem, confirmMatch, rejectMatch, completeMatch, claimItem, confirmClaim, closeOwnItem } from '../services/api';
 import { formatRelativeTime, formatFullDate } from '../utils/format';
 import { getPlaceholderImage } from '../utils/placeholder';
 import { useNotifications } from '../hooks/useNotifications';
@@ -118,6 +118,11 @@ export default function PostDetail() {
   const [claimed, setClaimed] = useState(false);
   const [confirmingReceipt, setConfirmingReceipt] = useState(false);
   const [completingMatch, setCompletingMatch] = useState(false);
+  const [closingOwn, setClosingOwn] = useState(false);
+  // แกลเลอรีรูป: index ของรูปที่กำลังดูอยู่ (รีเซ็ตเป็นรูปแรกเมื่อเปลี่ยนโพสต์)
+  const [activeImage, setActiveImage] = useState(0);
+  useEffect(() => { setActiveImage(0); }, [id]);
+  const [showCloseOwnConfirm, setShowCloseOwnConfirm] = useState(false);
 
   // แจ้งผลลัพธ์การกระทำต่างๆ ในหน้านี้ (ยืนยัน/ปฏิเสธ/ปิดเคส) ด้วย modal ในแอปเอง
   // แทน alert() ของเบราว์เซอร์ ที่จะโชว์ข้อความ "localhost บอกว่า..." ไม่สวยและดูไม่น่าเชื่อถือ
@@ -299,6 +304,31 @@ export default function PostDetail() {
     }
   };
 
+  // ปุ่ม "เจอของแล้ว ปิดประกาศ" — เจ้าของโพสต์ของหายเจอของเองแล้ว ปิดเคสเองได้ (ไม่งั้นโพสต์ค้างตลอด)
+  // โชว์เฉพาะเจ้าของโพสต์ "ของหาย" ที่ยังไม่จบเคส ไม่ว่าจะมีแมทช์/คำอ้างสิทธิ์ค้างอยู่หรือไม่
+  // (ฝั่ง backend จะยกเลิกแมทช์/คำอ้างสิทธิ์ที่ค้างให้ และแจ้งอีกฝั่ง)
+  // รูปทั้งหมดของโพสต์ (โพสต์เก่าที่มีรูปเดียวได้ image_urls ที่มีรูปเดียวจาก backend)
+  const galleryImages: string[] = post?.image_urls?.length ? post.image_urls : post?.image_url ? [post.image_url] : [];
+  const currentImage = galleryImages[Math.min(activeImage, Math.max(galleryImages.length - 1, 0))] || FALLBACK_IMAGE;
+
+  const showCloseOwnButton = isPostOwner && post?.type === "lost" && post?.status !== "matched";
+
+  const handleCloseOwn = async () => {
+    if (!id || !currentUserId) return;
+    setClosingOwn(true);
+    try {
+      await closeOwnItem(id, currentUserId);
+      setShowCloseOwnConfirm(false);
+      setResultModal({ success: true, title: "ปิดประกาศแล้ว", message: "ยินดีด้วยที่ได้ของคืน 🎉 ประกาศนี้ถูกปิดแล้ว และอีกฝั่งที่เกี่ยวข้องได้รับแจ้งแล้ว", goToAllPosts: true });
+    } catch (err: any) {
+      console.error(err);
+      setShowCloseOwnConfirm(false);
+      setResultModal({ success: false, title: "เกิดข้อผิดพลาด", message: err?.message || "ปิดเคสไม่สำเร็จ ลองใหม่อีกครั้ง" });
+    } finally {
+      setClosingOwn(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-cream font-kanit">
 
@@ -464,7 +494,7 @@ export default function PostDetail() {
               <div style={styles.imageGrid} className="justify-center">
                 <div style={styles.mainImageWrapper}>
                   <img
-                    src={post.image_url || FALLBACK_IMAGE}
+                    src={currentImage}
                     alt="Main"
                     style={styles.gridImage}
                     className="w-auto h-auto max-w-full max-h-[280px] sm:max-h-[380px] object-contain bg-gray-50 rounded-lg"
@@ -474,6 +504,27 @@ export default function PostDetail() {
                   />
                 </div>
               </div>
+
+              {/* รูปย่อ (แสดงเมื่อมีมากกว่า 1 รูป) กดเพื่อสลับรูปหลักด้านบน */}
+              {galleryImages.length > 1 && (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '4px' }}>
+                  {galleryImages.map((url, i) => (
+                    <button
+                      key={url + i}
+                      type="button"
+                      onClick={() => setActiveImage(i)}
+                      aria-label={`ดูรูปที่ ${i + 1}`}
+                      style={{
+                        width: '56px', height: '56px', padding: 0, borderRadius: '8px', overflow: 'hidden', cursor: 'pointer',
+                        background: '#F7FAFC', border: i === activeImage ? '2px solid #FF6B00' : '2px solid #E2E8F0',
+                        opacity: i === activeImage ? 1 : 0.7,
+                      }}
+                    >
+                      <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* กล่องแจ้งว่ามีแมทช์รออยู่ + ปุ่มยืนยัน/ไม่ใช่ของฉัน (โชว์เฉพาะเจ้าของของหายเอง) */}
               {showConfirmButton && !rejected && (
@@ -532,6 +583,23 @@ export default function PostDetail() {
                       : isMatchLostOwner
                         ? "ได้รับของคืนแล้ว ปิดเคสนี้"
                         : "ส่งคืนของแล้ว ปิดเคสนี้"}
+                  </button>
+                </div>
+              )}
+
+              {/* เจ้าของโพสต์ของหายเจอของเองแล้ว → ปิดประกาศเอง */}
+              {showCloseOwnButton && (
+                <div style={{ ...styles.matchBox, backgroundColor: '#FFF7ED', border: '1px solid #FED7AA' }}>
+                  <div style={styles.matchBoxText}>
+                    <CheckCircle2 size={20} style={{ color: '#EA580C', flexShrink: 0 }} />
+                    <span>เจอของชิ้นนี้แล้วใช่ไหม? ปิดประกาศนี้ได้เลย จะได้ไม่ค้างอยู่ในระบบและไม่มีคนมาติดต่อซ้ำ</span>
+                  </div>
+                  <button
+                    onClick={() => setShowCloseOwnConfirm(true)}
+                    disabled={closingOwn}
+                    style={{ ...styles.confirmMatchBtn, backgroundColor: '#EA580C' }}
+                  >
+                    เจอของแล้ว ปิดประกาศนี้
                   </button>
                 </div>
               )}
@@ -682,6 +750,18 @@ export default function PostDetail() {
 
         </div>
       </div>
+
+      {/* modal ยืนยันก่อนปิดประกาศของตัวเอง (ย้อนกลับไม่ได้) */}
+      <ResultModal
+        open={showCloseOwnConfirm}
+        success={false}
+        title="ปิดประกาศนี้?"
+        message="ประกาศจะเปลี่ยนเป็น พบเจ้าของแล้ว และหายจากหน้าประกาศทั้งหมด ย้อนกลับไม่ได้ ถ้ามีแมทช์หรือคนแจ้งว่าเจอของค้างอยู่ ระบบจะยกเลิกและแจ้งเขาให้"
+        actionLabel={closingOwn ? "กำลังปิด..." : "ใช่ ปิดประกาศ"}
+        onAction={handleCloseOwn}
+        confirmLabel="ยกเลิก"
+        onConfirm={() => setShowCloseOwnConfirm(false)}
+      />
 
       {/* modal ยืนยัน "ไม่ใช่ของฉัน" ก่อนยิง reject จริง */}
       <ResultModal
