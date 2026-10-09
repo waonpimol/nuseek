@@ -16,9 +16,13 @@ import {
   Phone,
   MessageCircle,
   Link2,
-  AtSign
+  AtSign,
+  Pencil,
+  ChevronLeft,
+  ChevronRight,
+  Trash2
 } from 'lucide-react';
-import { getItem, confirmMatch, rejectMatch, completeMatch, claimItem, confirmClaim, closeOwnItem } from '../services/api';
+import { getItem, confirmMatch, rejectMatch, completeMatch, claimItem, confirmClaim, updateOwnItem, deleteOwnItem } from '../services/api';
 import { formatRelativeTime, formatFullDate } from '../utils/format';
 import { getPlaceholderImage } from '../utils/placeholder';
 import { useNotifications } from '../hooks/useNotifications';
@@ -26,6 +30,7 @@ import { supabase } from '../services/supabaseClient';
 import { getAvatarColor, getAvatarInitial } from '../utils/avatar';
 import ResultModal from '../components/ResultModal';
 import PageLoader from '../components/PageLoader';
+import EditPostModal from '../components/EditPostModal';
 
 const FALLBACK_IMAGE = getPlaceholderImage(600, 400);
 
@@ -118,11 +123,16 @@ export default function PostDetail() {
   const [claimed, setClaimed] = useState(false);
   const [confirmingReceipt, setConfirmingReceipt] = useState(false);
   const [completingMatch, setCompletingMatch] = useState(false);
-  const [closingOwn, setClosingOwn] = useState(false);
   // แกลเลอรีรูป: index ของรูปที่กำลังดูอยู่ (รีเซ็ตเป็นรูปแรกเมื่อเปลี่ยนโพสต์)
   const [activeImage, setActiveImage] = useState(0);
+  const galleryRef = useRef<HTMLDivElement>(null);
   useEffect(() => { setActiveImage(0); }, [id]);
-  const [showCloseOwnConfirm, setShowCloseOwnConfirm] = useState(false);
+  // แก้ไข/ลบโพสต์ของตัวเอง
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // แจ้งผลลัพธ์การกระทำต่างๆ ในหน้านี้ (ยืนยัน/ปฏิเสธ/ปิดเคส) ด้วย modal ในแอปเอง
   // แทน alert() ของเบราว์เซอร์ ที่จะโชว์ข้อความ "localhost บอกว่า..." ไม่สวยและดูไม่น่าเชื่อถือ
@@ -304,28 +314,55 @@ export default function PostDetail() {
     }
   };
 
-  // ปุ่ม "เจอของแล้ว ปิดประกาศ" — เจ้าของโพสต์ของหายเจอของเองแล้ว ปิดเคสเองได้ (ไม่งั้นโพสต์ค้างตลอด)
-  // โชว์เฉพาะเจ้าของโพสต์ "ของหาย" ที่ยังไม่จบเคส ไม่ว่าจะมีแมทช์/คำอ้างสิทธิ์ค้างอยู่หรือไม่
-  // (ฝั่ง backend จะยกเลิกแมทช์/คำอ้างสิทธิ์ที่ค้างให้ และแจ้งอีกฝั่ง)
   // รูปทั้งหมดของโพสต์ (โพสต์เก่าที่มีรูปเดียวได้ image_urls ที่มีรูปเดียวจาก backend)
   const galleryImages: string[] = post?.image_urls?.length ? post.image_urls : post?.image_url ? [post.image_url] : [];
-  const currentImage = galleryImages[Math.min(activeImage, Math.max(galleryImages.length - 1, 0))] || FALLBACK_IMAGE;
+  const goToImage = (i: number) => {
+    const el = galleryRef.current;
+    if (!el) return;
+    const next = Math.max(0, Math.min(i, galleryImages.length - 1));
+    el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' });
+  };
 
-  const showCloseOwnButton = isPostOwner && post?.type === "lost" && post?.status !== "matched";
+  // เครื่องมือของเจ้าของโพสต์: แก้ไข/ลบ (ลบ = ลบออกจากระบบจริง ไม่เก็บในประวัติ) — ใช้ได้เฉพาะโพสต์ที่ยังไม่จบเคส
+  // แก้ไขไม่ได้ระหว่างกำลังส่งมอบของ (แมทช์ confirmed หรือมีคำอ้างสิทธิ์ค้างอยู่) แต่ลบได้ (อีกฝั่งจะได้รับแจ้ง)
+  const showOwnerTools = isPostOwner && post?.status !== "matched";
+  const canEditPost = showOwnerTools && !post?.confirmed_match_id && !post?.pending_claim_id;
 
-  const handleCloseOwn = async () => {
+  const handleSaveEdit = async (values: { title: string; description: string; location: string }) => {
     if (!id || !currentUserId) return;
-    setClosingOwn(true);
+    setSavingEdit(true);
+    setEditError(null);
     try {
-      await closeOwnItem(id, currentUserId);
-      setShowCloseOwnConfirm(false);
-      setResultModal({ success: true, title: "ปิดประกาศแล้ว", message: "ยินดีด้วยที่ได้ของคืน 🎉 ประกาศนี้ถูกปิดแล้ว และอีกฝั่งที่เกี่ยวข้องได้รับแจ้งแล้ว", goToAllPosts: true });
+      await updateOwnItem(id, currentUserId, values);
+      setPost((prev: any) => ({
+        ...prev,
+        title: values.title.trim(),
+        description: values.description.trim(),
+        location: values.location.trim(),
+      }));
+      setShowEditModal(false);
+      setResultModal({ success: true, title: "แก้ไขแล้ว", message: "บันทึกการแก้ไขประกาศเรียบร้อย" });
     } catch (err: any) {
       console.error(err);
-      setShowCloseOwnConfirm(false);
-      setResultModal({ success: false, title: "เกิดข้อผิดพลาด", message: err?.message || "ปิดเคสไม่สำเร็จ ลองใหม่อีกครั้ง" });
+      setEditError(err?.message || "แก้ไขไม่สำเร็จ ลองใหม่อีกครั้ง");
     } finally {
-      setClosingOwn(false);
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDeletePost = async () => {
+    if (!id || !currentUserId) return;
+    setDeleting(true);
+    try {
+      await deleteOwnItem(id, currentUserId);
+      setShowDeleteConfirm(false);
+      setResultModal({ success: true, title: "ลบประกาศแล้ว", message: "ประกาศนี้ถูกลบออกจากระบบเรียบร้อย", goToAllPosts: true });
+    } catch (err: any) {
+      console.error(err);
+      setShowDeleteConfirm(false);
+      setResultModal({ success: false, title: "เกิดข้อผิดพลาด", message: err?.message || "ลบไม่สำเร็จ ลองใหม่อีกครั้ง" });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -470,7 +507,7 @@ export default function PostDetail() {
                     backgroundColor: post.status === "matched" ? "#00c950" : post.type === "lost" ? "#FF2D38" : "#00A3EF",
                   }}
                 >
-                  {post.status === "matched" ? "พบเจ้าของแล้ว" : post.type === "lost" ? "หาย" : "พบ"}
+                  {post.status === "matched" ? "สำเร็จ" : post.type === "lost" ? "หาย" : "พบ"}
                 </span>
               </div>
 
@@ -490,41 +527,67 @@ export default function PostDetail() {
                 <span style={styles.locationText}>{post.location || "ไม่ระบุสถานที่"}</span>
               </div>
 
-              {/* ส่วนจัดวางรูปภาพ */}
-              <div style={styles.imageGrid} className="justify-center">
-                <div style={styles.mainImageWrapper}>
-                  <img
-                    src={currentImage}
-                    alt="Main"
-                    style={styles.gridImage}
-                    className="w-auto h-auto max-w-full max-h-[280px] sm:max-h-[380px] object-contain bg-gray-50 rounded-lg"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* รูปย่อ (แสดงเมื่อมีมากกว่า 1 รูป) กดเพื่อสลับรูปหลักด้านบน */}
-              {galleryImages.length > 1 && (
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '4px' }}>
-                  {galleryImages.map((url, i) => (
-                    <button
-                      key={url + i}
-                      type="button"
-                      onClick={() => setActiveImage(i)}
-                      aria-label={`ดูรูปที่ ${i + 1}`}
-                      style={{
-                        width: '56px', height: '56px', padding: 0, borderRadius: '8px', overflow: 'hidden', cursor: 'pointer',
-                        background: '#F7FAFC', border: i === activeImage ? '2px solid #FF6B00' : '2px solid #E2E8F0',
-                        opacity: i === activeImage ? 1 : 0.7,
-                      }}
-                    >
-                      <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </button>
+              {/* รูปภาพ: หลายรูปเลื่อนดูได้ (ปัดบนมือถือ / กดลูกศรบนจอใหญ่) */}
+              <div className="relative w-full max-w-[560px] mx-auto mb-4 rounded-lg overflow-hidden bg-gray-50">
+                <div
+                  ref={galleryRef}
+                  onScroll={() => {
+                    const el = galleryRef.current;
+                    if (el && el.clientWidth) setActiveImage(Math.round(el.scrollLeft / el.clientWidth));
+                  }}
+                  className="flex w-full overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                >
+                  {(galleryImages.length ? galleryImages : [FALLBACK_IMAGE]).map((url, i) => (
+                    <div key={url + i} className="w-full flex-shrink-0 snap-center flex items-center justify-center h-[280px] sm:h-[380px]">
+                      <img
+                        src={url}
+                        alt={`รูปที่ ${i + 1}`}
+                        draggable={false}
+                        className="max-w-full max-h-full object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
+                        }}
+                      />
+                    </div>
                   ))}
                 </div>
-              )}
+
+                {galleryImages.length > 1 && (
+                  <>
+                    <span className="absolute top-3 right-3 text-xs font-semibold text-white bg-black/55 rounded-full px-2.5 py-0.5 select-none pointer-events-none">
+                      {activeImage + 1}/{galleryImages.length}
+                    </span>
+                    {activeImage > 0 && (
+                      <button
+                        type="button"
+                        aria-label="รูปก่อนหน้า"
+                        onClick={() => goToImage(activeImage - 1)}
+                        className="hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow hover:bg-white transition"
+                      >
+                        <ChevronLeft size={20} />
+                      </button>
+                    )}
+                    {activeImage < galleryImages.length - 1 && (
+                      <button
+                        type="button"
+                        aria-label="รูปถัดไป"
+                        onClick={() => goToImage(activeImage + 1)}
+                        className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow hover:bg-white transition"
+                      >
+                        <ChevronRight size={20} />
+                      </button>
+                    )}
+                    <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 pointer-events-none">
+                      {galleryImages.map((_, i) => (
+                        <span
+                          key={i}
+                          className={`h-1.5 rounded-full transition-all ${i === activeImage ? 'w-4 bg-orange-500' : 'w-1.5 bg-gray-400/70'}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
 
               {/* กล่องแจ้งว่ามีแมทช์รออยู่ + ปุ่มยืนยัน/ไม่ใช่ของฉัน (โชว์เฉพาะเจ้าของของหายเอง) */}
               {showConfirmButton && !rejected && (
@@ -587,19 +650,23 @@ export default function PostDetail() {
                 </div>
               )}
 
-              {/* เจ้าของโพสต์ของหายเจอของเองแล้ว → ปิดประกาศเอง */}
-              {showCloseOwnButton && (
-                <div style={{ ...styles.matchBox, backgroundColor: '#FFF7ED', border: '1px solid #FED7AA' }}>
-                  <div style={styles.matchBoxText}>
-                    <CheckCircle2 size={20} style={{ color: '#EA580C', flexShrink: 0 }} />
-                    <span>เจอของชิ้นนี้แล้วใช่ไหม? ปิดประกาศนี้ได้เลย จะได้ไม่ค้างอยู่ในระบบและไม่มีคนมาติดต่อซ้ำ</span>
-                  </div>
+              {/* เจ้าของโพสต์ลงผิด → แก้ไข / ลบประกาศ */}
+              {showOwnerTools && (
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  {canEditPost && (
+                    <button
+                      onClick={() => { setEditError(null); setShowEditModal(true); }}
+                      style={{ ...styles.rejectMatchBtn, color: '#4A5568', border: '1px solid #CBD5E0', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <Pencil size={14} /> แก้ไขประกาศ
+                    </button>
+                  )}
                   <button
-                    onClick={() => setShowCloseOwnConfirm(true)}
-                    disabled={closingOwn}
-                    style={{ ...styles.confirmMatchBtn, backgroundColor: '#EA580C' }}
+                    onClick={() => setShowDeleteConfirm(true)}
+                    disabled={deleting}
+                    style={{ ...styles.rejectMatchBtn, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                   >
-                    เจอของแล้ว ปิดประกาศนี้
+                    <Trash2 size={14} /> ลบประกาศ
                   </button>
                 </div>
               )}
@@ -751,16 +818,26 @@ export default function PostDetail() {
         </div>
       </div>
 
-      {/* modal ยืนยันก่อนปิดประกาศของตัวเอง (ย้อนกลับไม่ได้) */}
+      {/* modal แก้ไขประกาศของตัวเอง */}
+      <EditPostModal
+        open={showEditModal}
+        initial={{ title: post?.title || "", description: post?.description || "", location: post?.location || "" }}
+        saving={savingEdit}
+        error={editError}
+        onSave={handleSaveEdit}
+        onCancel={() => setShowEditModal(false)}
+      />
+
+      {/* modal ยืนยันก่อนลบประกาศ (ย้อนกลับไม่ได้) */}
       <ResultModal
-        open={showCloseOwnConfirm}
+        open={showDeleteConfirm}
         success={false}
-        title="ปิดประกาศนี้?"
-        message="ประกาศจะเปลี่ยนเป็น พบเจ้าของแล้ว และหายจากหน้าประกาศทั้งหมด ย้อนกลับไม่ได้ ถ้ามีแมทช์หรือคนแจ้งว่าเจอของค้างอยู่ ระบบจะยกเลิกและแจ้งเขาให้"
-        actionLabel={closingOwn ? "กำลังปิด..." : "ใช่ ปิดประกาศ"}
-        onAction={handleCloseOwn}
+        title="ลบประกาศนี้?"
+        message="ประกาศและรูปทั้งหมดจะถูกลบถาวร ย้อนกลับไม่ได้ ถ้ามีแมทช์หรือคนแจ้งว่าเจอของค้างอยู่ ระบบจะยกเลิกและแจ้งเขาให้"
+        actionLabel={deleting ? "กำลังลบ..." : "ใช่ ลบประกาศ"}
+        onAction={handleDeletePost}
         confirmLabel="ยกเลิก"
-        onConfirm={() => setShowCloseOwnConfirm(false)}
+        onConfirm={() => setShowDeleteConfirm(false)}
       />
 
       {/* modal ยืนยัน "ไม่ใช่ของฉัน" ก่อนยิง reject จริง */}

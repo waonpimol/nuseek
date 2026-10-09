@@ -20,6 +20,7 @@ import { hasContactInfo } from '../utils/profilecontact';
 import ResultModal from '../components/ResultModal';
 import Spinner from '../components/Spinner';
 import LoadingOverlay from '../components/LoadingOverlay';
+import AiIdentify from '../components/AiIdentify';
 
 export default function ReportFound() {
 	const navigate = useNavigate();
@@ -268,6 +269,9 @@ export default function ReportFound() {
 								required
 							/>
 						</div>
+
+						{/* ผู้ช่วย AI: ดูรูปแรกแล้วเสนอชื่อ/ยี่ห้อ/รุ่น (กดเอง ผู้ใช้ตัดสินใจเติมช่องชื่อเอง) */}
+						<AiIdentify file={images[0]?.file ?? null} onApply={setItemName} />
 
 						{/* กล่องข้อความขนาดใหญ่พิมพ์รายละเอียด */}
 						<div style={styles.inputBlock}>

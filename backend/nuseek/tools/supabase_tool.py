@@ -36,6 +36,8 @@ def attach_image_url(row: dict) -> dict:
     """เติมฟิลด์ image_url (คำนวณจาก image_path) ให้ row ที่ดึงมาจาก DB ก่อนส่งออกไปให้ frontend"""
     if row:
         row["image_url"] = get_image_url(row.get("image_path"))
+        # หลายรูป: image_paths คือรูปทั้งหมด (รูปแรก = รูปปก ตรงกับ image_path)
+        # โพสต์เก่า/ผลจาก search_items ไม่มี image_paths → ใช้รูปปกรูปเดียวแทน
         paths = row.get("image_paths") or ([row["image_path"]] if row.get("image_path") else [])
         row["image_urls"] = [get_image_url(p) for p in paths]
     return row
@@ -69,7 +71,7 @@ def insert_item_direct(item_type, title, description, image_path, location, embe
 # SEARCH SIMILAR ITEMS (plain function, ไม่ผ่าน ADK/LLM)
 # หา item ประเภทตรงข้าม (lost หา found, found หา lost) ที่คล้ายกันด้วย embedding ที่คำนวณไว้แล้ว
 # ==========================================
-def search_similar_items(current_type, embedding, top_k=5, threshold=0.7):
+def search_similar_items(current_type, embedding, top_k=5, threshold=0.6):
     if not embedding:
         return []
 
@@ -96,6 +98,104 @@ def search_similar_items(current_type, embedding, top_k=5, threshold=0.7):
     rows = result.data or []
     return [attach_image_url(x) for x in rows if x.get("score", 0) >= threshold]
 
+
+# ==========================================
+# INSERT ITEM (เวอร์ชัน ADK tool — เก็บไว้เผื่อ agent อื่นเรียกใช้ ปัจจุบัน /report ไม่ได้ใช้แล้ว)
+# ==========================================
+def insert_item(item_type, title, description, contact_phone, tool_context: ToolContext):
+    """
+    บันทึก item ลง Supabase
+    โดยดึง embedding, image_path, location และ user_id จาก ADK state
+    (ไม่รับเป็นพารามิเตอร์จาก LLM เพื่อกันไม่ให้ LLM พิมพ์/เดาผิดหรือส่งค่าว่างมาโดยไม่ตั้งใจ
+    ค่าพวกนี้มาจากตัวเลือกจริงที่ผู้ใช้กรอกในฟอร์มเสมอ)
+    """
+
+    # ดึง embedding จาก state
+    embedding = tool_context.state.get("embedding")
+
+    # ตรวจสอบ embedding
+    if not embedding:
+        return {
+            "success": False,
+            "error": "ไม่พบ embedding ใน state"
+        }
+
+    # ดึง image_path จาก state (ตั้งค่าไว้ล่วงหน้าตอนสร้าง session ใน routes/agent.py)
+    image_path = tool_context.state.get("image_path", "")
+
+    # ดึง location ที่ผู้ใช้เลือกจาก dropdown ในฟอร์มจาก state เช่นเดียวกัน
+    location = tool_context.state.get("location", "")
+
+    # ดึง user_id ของผู้ประกาศจาก state เช่นเดียวกัน (None ถ้าไม่ได้ login)
+    reporter_user_id = tool_context.state.get("reporter_user_id")
+
+    data = {
+        "type": item_type,
+        "title": title,
+        "description": description,
+        "image_path": image_path,
+        "location": location,
+        "contact_phone": contact_phone,
+        "embedding": embedding,
+        "status": "active",
+        "user_id": reporter_user_id,
+    }
+
+    result = supabase.table("items").insert(data).execute()
+    return result.data
+
+
+# ==========================================
+# SEARCH VECTOR
+# ==========================================
+def search_vector(
+    current_type,
+    tool_context: ToolContext,
+    top_k=5,
+    threshold=0.7
+):
+
+     # ดึง embedding จาก state
+    embedding = tool_context.state.get("embedding")
+
+    if not embedding:
+        return []
+
+    # กำหนดประเภทที่ต้องการค้นหา
+    if current_type == "lost":
+        target = "found"
+
+    elif current_type == "found":
+        target = "lost"
+
+    else:
+        raise ValueError(
+            "current_type must be lost or found"
+        )
+
+    # ค้นหาด้วย pgvector
+    result = (
+        supabase
+        .rpc(
+            "search_items",
+            {
+                "query_embedding": embedding,
+                "match_type": target,
+                "match_count": top_k
+            }
+        )
+        .execute()
+    )
+
+    rows = result.data or []
+
+    # กรองตาม threshold แล้วเติม image_url ให้แต่ละรายการ
+    return [
+        attach_image_url(x)
+        for x in rows
+        if x.get("score", 0) >= threshold
+    ]
+
 # ==========================================
 # SEARCH BY EMBEDDING (plain function, ไม่ผ่าน ADK state)
 # ใช้โดย endpoint /search-by-image ที่ไม่ต้องพึ่ง LLM agent
@@ -108,7 +208,7 @@ def get_item_ids_by_user(user_id: str) -> list:
     return [r["id"] for r in (result.data or [])]
 
 
-def search_by_embedding(embedding: list, top_k: int = 10, threshold: float = 0.7, exclude_item_ids=None):
+def search_by_embedding(embedding: list, top_k: int = 10, threshold: float = 0.3, exclude_item_ids=None):
     """
     ค้นหาไอเทมที่คล้ายกัน "ข้ามทั้งสองประเภท" (lost + found)
     รับ embedding ตรง ๆ เป็น argument (ไม่ต้องมี ToolContext/session)
@@ -143,11 +243,24 @@ def search_by_embedding(embedding: list, top_k: int = 10, threshold: float = 0.7
     matches.sort(key=lambda x: x.get("score", 0), reverse=True)
     matches = [attach_image_url(x) for x in matches[:top_k]]
 
+    # ฟังก์ชัน search_items บางเวอร์ชันไม่ส่ง created_at กลับมา (ดู migrations/003)
+    # ถ้าขาด ให้ดึงเฉพาะ id + created_at ของผลที่จะโชว์มาเติม (query เดียว) เพื่อให้การ์ดแสดงเวลาได้
+    missing = [m["id"] for m in matches if not m.get("created_at")]
+    if missing:
+        try:
+            res = supabase.table("items").select("id, created_at").in_("id", missing).execute()
+            created = {str(r["id"]): r.get("created_at") for r in (res.data or [])}
+            for m in matches:
+                if not m.get("created_at"):
+                    m["created_at"] = created.get(str(m["id"]))
+        except Exception as e:
+            print(f"[search] fill created_at failed: {e}")
+
     return matches
 
 
 # ==========================================
-# SEARCH LOGS 
+# SEARCH LOGS (เก็บไว้ debug ย้อนหลัง + ใช้เป็นหลักฐานตอนเขียนบทประเมินผล thesis)
 # ==========================================
 def log_search_query(caption_en: str, caption_th: str, candidates: list, shown_count: int):
     """บันทึกทุกครั้งที่มีคนค้นหาด้วยรูป: BLIP caption ดิบ, คำแปลไทย, candidate ทุกตัวที่เจอ
@@ -508,78 +621,146 @@ def claim_item(item_id: str, claimant_user_id: str):
 
 
 # ==========================================
-# CLOSE OWN LOST POST (เจ้าของเจอของที่หายเองแล้ว ปิดเคสเอง)
+# EDIT / DELETE OWN POST (เจ้าของโพสต์แก้ไขหรือลบประกาศที่ลงผิด)
 # ==========================================
-def close_own_item(item_id: str, user_id: str):
-    """เจ้าของโพสต์ "ของหาย" กดปิดเคสเอง เพราะเจอของที่หายแล้วโดยไม่ผ่านระบบ
-    (ไม่งั้นโพสต์ค้าง active ตลอดไป ยังถูกแมทช์/ถูกอ้างสิทธิ์ต่อได้ทั้งที่ได้ของคืนแล้ว)
-    - ทำได้เฉพาะเจ้าของโพสต์ ประเภท 'lost' ที่ยังไม่จบเคส
-    - แมทช์ที่ค้างอยู่ (pending/confirmed) → 'rejected' และแจ้งผู้แจ้งพบว่าเจ้าของได้ของคืนแล้ว
-      (โพสต์ของผู้แจ้งพบยังเป็น active รอเจ้าของที่ถูกต้องต่อไป)
-    - คำอ้างสิทธิ์ที่ค้างอยู่ (pending) → 'cancelled' และแจ้งผู้ที่แจ้งว่าเจอของ
-    - สุดท้ายเปลี่ยนโพสต์เป็น 'matched' ผ่าน update_item_status (บันทึก resolved_at ด้วย)"""
+def _get_own_active_item(item_id: str, user_id: str):
+    """ตรวจสิทธิ์ร่วมของการแก้ไข/ลบ: ต้องมีโพสต์, เป็นเจ้าของ, และโพสต์ยังไม่จบเคส
+    คืน (item, None) ถ้าผ่าน หรือ (None, ข้อความ error) ถ้าไม่ผ่าน
+    โพสต์ที่ปิดเคสแล้ว (matched) ถือเป็นประวัติ ใช้นับสถิติและอ้างอิงจากอีกฝั่ง จึงไม่ให้แก้/ลบ"""
     item_res = (
-        supabase.table("items").select("id, type, title, user_id, status")
+        supabase.table("items")
+        .select("id, type, title, user_id, status, image_path, image_paths")
         .eq("id", item_id).maybe_single().execute()
     )
     item = item_res.data if item_res else None
     if not item:
-        return {"success": False, "error": "ไม่พบโพสต์นี้"}
+        return None, "ไม่พบโพสต์นี้"
     if not user_id or item.get("user_id") != user_id:
-        return {"success": False, "error": "ปิดเคสได้เฉพาะเจ้าของโพสต์เท่านั้น"}
-    if item.get("type") != "lost":
-        return {"success": False, "error": "ปิดเคสเองได้เฉพาะโพสต์ของหาย"}
+        return None, "ทำได้เฉพาะเจ้าของโพสต์เท่านั้น"
     if item.get("status") == "matched":
-        return {"success": False, "error": "เคสนี้ปิดไปแล้ว"}
+        return None, "เคสนี้ปิดไปแล้ว แก้ไขหรือลบไม่ได้"
+    return item, None
+
+
+def _has_handover_in_progress(item_id: str) -> bool:
+    """โพสต์นี้กำลังอยู่ระหว่างส่งมอบของหรือไม่ (แมทช์ confirmed หรือมีคำอ้างสิทธิ์ pending)
+    ช่วงนี้อีกฝั่งกำลังพึ่งข้อมูลในโพสต์อยู่ จึงไม่ให้แก้ไข"""
+    confirmed = (
+        supabase.table("matches").select("id")
+        .or_(f"lost_item_id.eq.{item_id},found_item_id.eq.{item_id}")
+        .eq("status", "confirmed").execute()
+    ).data or []
+    if confirmed:
+        return True
+    pending_claims = (
+        supabase.table("claims").select("id")
+        .eq("item_id", item_id).eq("status", "pending").execute()
+    ).data or []
+    return bool(pending_claims)
+
+
+def update_own_item(item_id: str, user_id: str, title: str, description: str, location: str, embedding: list):
+    """เจ้าของแก้ชื่อ/รายละเอียด/สถานที่ของโพสต์ที่ยังเปิดอยู่ (embedding คำนวณใหม่โดยผู้เรียก
+    เพราะข้อความเปลี่ยน ไม่งั้นการค้นหาจะยังใช้ข้อความเก่า)
+    ไม่แก้รูป และไม่สร้างแมทช์ใหม่ย้อนหลัง — แมทช์เดิมที่ค้างอยู่ยังอยู่ตามเดิม"""
+    item, err = _get_own_active_item(item_id, user_id)
+    if err:
+        return {"success": False, "error": err}
+
+    title = (title or "").strip()
+    if not title:
+        return {"success": False, "error": "ต้องระบุชื่อสิ่งของ"}
+
+    if _has_handover_in_progress(item_id):
+        return {"success": False, "error": "กำลังอยู่ระหว่างติดต่อส่งมอบของ แก้ไขตอนนี้ไม่ได้ ถ้าข้อมูลผิดให้ปิดเคสหรือแจ้งอีกฝั่งก่อน"}
+
+    result = (
+        supabase.table("items")
+        .update({
+            "title": title,
+            "description": (description or "").strip(),
+            "location": (location or "").strip(),
+            "embedding": embedding,
+        })
+        .eq("id", item_id).execute()
+    )
+    return {"success": True, "item": (result.data or [None])[0]}
+
+
+def delete_own_item(item_id: str, user_id: str):
+    """เจ้าของลบโพสต์ที่ลงผิดทิ้งถาวร (ย้อนกลับไม่ได้) ทำได้เฉพาะโพสต์ที่ยังไม่จบเคส
+    - แมทช์ทั้งหมดของโพสต์นี้ถูกลบ (matches อ้างอิง items โดยไม่มี cascade ต้องลบก่อน)
+      ฝั่งตรงข้ามของแมทช์ที่ยังค้างอยู่ (pending/confirmed) ได้รับแจ้ง โพสต์ของเขายัง active รอคู่ใหม่
+    - คำอ้างสิทธิ์ถูกลบตามโพสต์ (cascade) ผู้ที่อ้างสิทธิ์ค้างอยู่ (pending) ได้รับแจ้ง
+    - แจ้งเตือนเก่าที่ชี้มาที่โพสต์นี้ถูกลบ กันกดแล้วเปิดหน้าที่ไม่มีอยู่
+    - ลบไฟล์รูปออกจาก Storage ด้วย (ล้มเหลวก็ไม่ย้อนการลบ)"""
+    item, err = _get_own_active_item(item_id, user_id)
+    if err:
+        return {"success": False, "error": err}
 
     title = item.get("title") or "สิ่งของนี้"
 
-    # 1) ยกเลิกแมทช์ที่ค้างอยู่
-    matches = (
-        supabase.table("matches").select("id, found_item_id")
-        .eq("lost_item_id", item_id).in_("status", ["pending", "confirmed"]).execute()
+    # เก็บข้อมูลที่ต้องใช้แจ้งอีกฝั่ง "ก่อน" ลบ
+    all_matches = (
+        supabase.table("matches").select("id, lost_item_id, found_item_id, status")
+        .or_(f"lost_item_id.eq.{item_id},found_item_id.eq.{item_id}").execute()
     ).data or []
-    found_owner_notices = []
-    for m in matches:
-        supabase.table("matches").update({"status": "rejected"}).eq("id", m["id"]).execute()
-        found_res = (
-            supabase.table("items").select("user_id, title")
-            .eq("id", m["found_item_id"]).maybe_single().execute()
-        )
-        found = found_res.data if found_res else None
-        if found and found.get("user_id"):
-            found_owner_notices.append((found["user_id"], m["found_item_id"], found.get("title") or "สิ่งของนี้"))
 
-    # 2) ยกเลิกคำอ้างสิทธิ์ที่ค้างอยู่ (claims.status ไม่มี check constraint ใช้ 'cancelled' ได้)
-    claims = (
-        supabase.table("claims").select("id, claimant_user_id")
+    other_owner_notices = []
+    for m in all_matches:
+        if m.get("status") not in ("pending", "confirmed"):
+            continue
+        other_id = m["found_item_id"] if m["lost_item_id"] == item_id else m["lost_item_id"]
+        other_res = (
+            supabase.table("items").select("user_id, title")
+            .eq("id", other_id).maybe_single().execute()
+        )
+        other = other_res.data if other_res else None
+        if other and other.get("user_id"):
+            other_owner_notices.append((other["user_id"], other_id, other.get("title") or "สิ่งของนี้"))
+
+    pending_claims = (
+        supabase.table("claims").select("claimant_user_id")
         .eq("item_id", item_id).eq("status", "pending").execute()
     ).data or []
-    for c in claims:
-        supabase.table("claims").update({"status": "cancelled"}).eq("id", c["id"]).execute()
 
-    # 3) ปิดเคสจริง (บันทึก resolved_at)
-    update_item_status(item_id, "matched")
+    # ลบ: แจ้งเตือนที่ชี้มาที่โพสต์นี้ → แมทช์ → โพสต์ (claims ถูกลบตาม cascade)
+    supabase.table("notifications").delete().or_(
+        f"item_id.eq.{item_id},matched_item_id.eq.{item_id}"
+    ).execute()
+    if all_matches:
+        supabase.table("matches").delete().or_(
+            f"lost_item_id.eq.{item_id},found_item_id.eq.{item_id}"
+        ).execute()
+    supabase.table("items").delete().eq("id", item_id).execute()
 
-    # 4) แจ้งอีกฝั่ง — ทำหลังปิดเคสสำเร็จแล้ว ล้มเหลวก็ไม่ย้อนการปิดเคส
-    for owner_id, found_item_id, found_title in found_owner_notices:
+    # ลบรูปใน Storage (ล้มเหลวก็แค่ทิ้งไฟล์ค้าง ไม่กระทบผลการลบโพสต์)
+    paths = item.get("image_paths") or ([item["image_path"]] if item.get("image_path") else [])
+    if paths:
+        try:
+            supabase.storage.from_(BUCKET_NAME).remove(paths)
+        except Exception as e:
+            print(f"delete_own_item: remove images failed: {e}")
+
+    # แจ้งอีกฝั่ง — ทำหลังลบสำเร็จแล้ว
+    for owner_id, other_item_id, other_title in other_owner_notices:
         try:
             create_notification(
-                user_id=owner_id, item_id=found_item_id, matched_item_id=None,
-                message=f'เจ้าของประกาศ "{title}" แจ้งว่าได้ของคืนแล้ว แมทช์กับ "{found_title}" ของคุณจึงถูกยกเลิก ประกาศของคุณยังเปิดอยู่ รอเจ้าของที่ถูกต้องต่อไป',
+                user_id=owner_id, item_id=other_item_id, matched_item_id=None,
+                message=f'ประกาศ "{title}" ที่เคยแมทช์กับ "{other_title}" ของคุณถูกเจ้าของลบแล้ว แมทช์จึงถูกยกเลิก ประกาศของคุณยังเปิดอยู่ รอคู่ที่ถูกต้องต่อไป',
             )
         except Exception as e:
-            print(f"close_own_item: notify found owner failed: {e}")
-    for c in claims:
+            print(f"delete_own_item: notify other owner failed: {e}")
+    for c in pending_claims:
         try:
             create_notification(
-                user_id=c["claimant_user_id"], item_id=item_id, matched_item_id=None,
-                message=f'เจ้าของประกาศ "{title}" แจ้งว่าได้ของคืนแล้ว ขอบคุณที่ช่วยตามหา',
+                user_id=c["claimant_user_id"], item_id=None, matched_item_id=None,
+                message=f'ประกาศ "{title}" ที่คุณแจ้งไว้ ถูกเจ้าของลบแล้ว',
             )
         except Exception as e:
-            print(f"close_own_item: notify claimant failed: {e}")
+            print(f"delete_own_item: notify claimant failed: {e}")
 
-    return {"success": True, "cancelled_matches": len(matches), "cancelled_claims": len(claims)}
+    return {"success": True, "cancelled_matches": len(other_owner_notices), "cancelled_claims": len(pending_claims)}
 
 
 # ==========================================
@@ -653,7 +834,7 @@ def confirm_claim(claim_id: str, confirming_user_id: str = None):
     item_id = claim["item_id"]
     claimant_user_id = claim["claimant_user_id"]
 
-    supabase.table("claims").update({"status": "confirmed"}).eq("id", claim_id).execute()
+    supabase.table("claims").update({"status": "completed"}).eq("id", claim_id).execute()
     update_item_status(item_id, "matched")
 
     item_res = supabase.table("items").select("type, title, user_id").eq("id", item_id).maybe_single().execute()

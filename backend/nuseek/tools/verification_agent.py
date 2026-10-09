@@ -5,7 +5,7 @@ from google import genai
 from google.genai import types
 
 # ==========================================
-# LLM VERIFICATION AGENT — ใช้เฉพาะที่ /search-by-image เท่านั้น
+# LLM VERIFICATION AGENT 
 # ==========================================
 #
 # หน้าที่ 2 อย่าง:

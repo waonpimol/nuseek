@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type SyntheticEvent, type MouseEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
 	Home,
@@ -13,7 +13,11 @@ import {
 	Menu,
 	X,
 	SearchX,
-	PackageSearch
+	PackageSearch,
+	ChevronLeft,
+	ChevronRight,
+	ChevronDown,
+	Check
 } from "lucide-react";
 import { getItems } from "../services/api";
 import { formatRelativeTime } from "../utils/format";
@@ -24,10 +28,168 @@ import { getAvatarColor, getAvatarInitial } from "../utils/avatar";
 import PostSkeletonList from "../components/PostSkeleton";
 import EmptyState from "../components/EmptyState";
 
-// แปลง type จาก DB ("lost"/"found") เป็นข้อความไทยที่ UI เดิมใช้อยู่
-const typeLabel = (type: string) => (type === "lost" ? "ของหาย" : "ของที่พบ");
-
 const FALLBACK_IMAGE = getPlaceholderImage(500, 375);
+const PAGE_SIZE = 9;
+
+// สไลด์รูปในการ์ด: ปัดซ้าย-ขวาบนมือถือ / กดลูกศรบนจอใหญ่ มีตัวนับ (2/3) และจุดบอกตำแหน่ง
+function ImageCarousel({ post }: { post: any }) {
+	const imgs: string[] = post.image_urls?.length
+		? post.image_urls
+		: post.image_url
+			? [post.image_url]
+			: [FALLBACK_IMAGE];
+	const trackRef = useRef<HTMLDivElement>(null);
+	const [index, setIndex] = useState(0);
+	const multi = imgs.length > 1;
+
+	const goTo = (i: number) => {
+		const el = trackRef.current;
+		if (!el) return;
+		const next = Math.max(0, Math.min(i, imgs.length - 1));
+		el.scrollTo({ left: next * el.clientWidth, behavior: "smooth" });
+	};
+
+	const onScroll = () => {
+		const el = trackRef.current;
+		if (!el || !el.clientWidth) return;
+		setIndex(Math.round(el.scrollLeft / el.clientWidth));
+	};
+
+	const onErr = (e: SyntheticEvent<HTMLImageElement>) => {
+		e.currentTarget.src = FALLBACK_IMAGE;
+	};
+
+	const stop = (e: MouseEvent) => e.stopPropagation();
+
+	return (
+		<div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100">
+			<div
+				ref={trackRef}
+				onScroll={onScroll}
+				className="flex w-full h-full overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+			>
+				{imgs.map((url, i) => (
+					<img
+						key={i}
+						src={url}
+						alt={`${post.title} รูปที่ ${i + 1}`}
+						draggable={false}
+						loading={i === 0 ? "eager" : "lazy"}
+						className="w-full h-full object-cover flex-shrink-0 snap-center"
+						onError={onErr}
+					/>
+				))}
+			</div>
+
+			{/* ป้ายประเภททับรูป: พื้นสีทึบ ตัวอักษรขาว (หาย = แดง / พบ = ฟ้า) */}
+			<div className={`absolute top-2.5 left-2.5 sm:top-3 sm:left-3 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full flex items-center gap-1.5 sm:gap-2 shadow-sm select-none pointer-events-none ${post.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
+				<span className="text-[11px] sm:text-xs font-semibold tracking-wide text-white">
+					{post.type === "lost" ? "หาย" : "พบ"}
+				</span>
+			</div>
+
+			{multi && (
+				<>
+					<span className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 text-[11px] font-semibold text-white bg-black/55 rounded-full px-2 py-0.5 select-none pointer-events-none">
+						{index + 1}/{imgs.length}
+					</span>
+
+					{index > 0 && (
+						<button
+							type="button"
+							aria-label="รูปก่อนหน้า"
+							onClick={(e) => { stop(e); goTo(index - 1); }}
+							className="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow opacity-0 group-hover:opacity-100 transition"
+						>
+							<ChevronLeft size={18} />
+						</button>
+					)}
+					{index < imgs.length - 1 && (
+						<button
+							type="button"
+							aria-label="รูปถัดไป"
+							onClick={(e) => { stop(e); goTo(index + 1); }}
+							className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow opacity-0 group-hover:opacity-100 transition"
+						>
+							<ChevronRight size={18} />
+						</button>
+					)}
+
+					<div className="absolute bottom-2.5 left-0 right-0 flex justify-center gap-1.5 pointer-events-none">
+						{imgs.map((_, i) => (
+							<span
+								key={i}
+								className={`h-1.5 rounded-full transition-all ${i === index ? "w-4 bg-white" : "w-1.5 bg-white/60"}`}
+							/>
+						))}
+					</div>
+				</>
+			)}
+		</div>
+	);
+}
+
+// ตัวเลือกแบบกำหนดเอง (แทน <select> ของเบราว์เซอร์ เพื่อให้รายการขอบมนและดูเรียบๆ) ใช้ทั้งตัวกรองประเภทและสถานที่
+function FilterSelect({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+	const [open, setOpen] = useState(false);
+	const wrapRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		if (!open) return;
+		const onDown = (e: globalThis.MouseEvent) => {
+			if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+		};
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === "Escape") setOpen(false);
+		};
+		document.addEventListener("mousedown", onDown);
+		document.addEventListener("keydown", onKey);
+		return () => {
+			document.removeEventListener("mousedown", onDown);
+			document.removeEventListener("keydown", onKey);
+		};
+	}, [open]);
+
+	const current = options.find((o) => o.value === value)?.label ?? options[0].label;
+
+	return (
+		<div ref={wrapRef} className="relative">
+			<button
+				type="button"
+				onClick={() => setOpen((o) => !o)}
+				aria-haspopup="listbox"
+				aria-expanded={open}
+				className={`w-full flex items-center justify-between gap-2 px-3 sm:px-4 py-2 sm:py-3 text-sm bg-gray-50 border rounded-xl outline-none transition text-gray-700 ${open ? "border-gray-300 bg-white" : "border-gray-200 hover:border-gray-300"}`}
+			>
+				<span className="truncate">{current}</span>
+				<ChevronDown size={16} className={`text-gray-400 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+			</button>
+
+			{open && (
+				<ul
+					role="listbox"
+					className="absolute z-30 left-0 right-0 mt-2 max-h-72 overflow-y-auto bg-white border border-gray-100 rounded-2xl shadow-[0_12px_32px_-8px_rgba(0,0,0,0.15)] p-1.5 [scrollbar-width:thin]"
+				>
+					{options.map((o) => {
+						const selected = o.value === value;
+						return (
+							<li key={o.value} role="option" aria-selected={selected}>
+								<button
+									type="button"
+									onClick={() => { onChange(o.value); setOpen(false); }}
+									className={`w-full flex items-center justify-between gap-2 text-left px-3 py-2 rounded-xl text-sm transition-colors ${selected ? "bg-orange-50 text-orange-600 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+								>
+									<span className="truncate">{o.label}</span>
+									{selected && <Check size={15} className="flex-shrink-0" />}
+								</button>
+							</li>
+						);
+					})}
+				</ul>
+			)}
+		</div>
+	);
+}
 
 export default function AllPosts() {
 	const navigate = useNavigate();
@@ -105,6 +267,32 @@ export default function AllPosts() {
 	// มีตัวกรอง/คำค้นอยู่ไหม — ใช้แยกว่า "ไม่เจอเพราะกรอง" หรือ "ยังไม่มีประกาศเลย"
 	const hasActiveFilter =
 		activeTab !== "ทั้งหมด" || searchQuery.trim() !== "" || selectedLocation !== "all";
+
+	// แบ่งหน้า: หน้าละ 9 การ์ด
+	const [page, setPage] = useState(1);
+	const totalPages = Math.max(1, Math.ceil(filteredPosts.length / PAGE_SIZE));
+	const currentPage = Math.min(page, totalPages);
+	const pagedPosts = filteredPosts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+	// เปลี่ยนตัวกรอง/คำค้น → กลับไปหน้า 1
+	useEffect(() => {
+		setPage(1);
+	}, [activeTab, searchQuery, selectedLocation]);
+
+	const goToPage = (n: number) => {
+		setPage(Math.max(1, Math.min(n, totalPages)));
+		window.scrollTo({ top: 0, behavior: "smooth" });
+	};
+
+	// เลขหน้าที่จะแสดง (หน้าแรก/สุดท้าย + รอบหน้าปัจจุบัน ที่เหลือเป็น …)
+	const pageNumbers: (number | "gap")[] = [];
+	for (let i = 1; i <= totalPages; i++) {
+		if (i === 1 || i === totalPages || Math.abs(i - currentPage) <= 1) {
+			pageNumbers.push(i);
+		} else if (pageNumbers[pageNumbers.length - 1] !== "gap") {
+			pageNumbers.push("gap");
+		}
+	}
 
 	const clearFilters = () => {
 		setActiveTab("ทั้งหมด");
@@ -248,37 +436,8 @@ export default function AllPosts() {
 				{/* ---- (Filter & Search Header) ---- */}
 				<div className="bg-white rounded-2xl p-3 sm:p-6 shadow-sm border border-gray-100 space-y-3 sm:space-y-4">
 
-					<div className="flex items-center justify-between flex-wrap gap-3">
-						<div className="flex bg-gray-100 p-1 sm:p-1.5 rounded-xl gap-1">
-							{["ทั้งหมด", "ของหาย", "ของที่พบ"].map((tab) => {
-								const getActiveColors = () => {
-									if (tab === "ของหาย") return "bg-red-500 text-white shadow-sm";
-									if (tab === "ของที่พบ") return "bg-sky-500 text-white shadow-sm";
-									return "bg-orange-500 text-white shadow-sm";
-								};
-
-								return (
-									<button
-										key={tab}
-										onClick={() => setActiveTab(tab)}
-										className={`whitespace-nowrap px-3 py-1.5 text-xs sm:px-6 sm:py-2.5 sm:text-sm rounded-lg font-medium transition-all ${activeTab === tab
-											? getActiveColors()
-											: "text-gray-500 hover:text-gray-800 hover:bg-white/50"
-											}`}
-									>
-										{tab}
-									</button>
-								);
-							})}
-						</div>
-
-						<div className="text-xs sm:text-sm text-gray-500 font-medium">
-							<span className="text-orange-500 font-bold text-sm sm:text-base">{filteredPosts.length}</span> ประกาศ
-						</div>
-					</div>
-
 					<div className="grid grid-cols-1 md:grid-cols-12 gap-2 sm:gap-3">
-						<div className="md:col-span-7 relative">
+						<div className="md:col-span-5 relative">
 							<Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
 							<input
 								type="text"
@@ -289,17 +448,27 @@ export default function AllPosts() {
 							/>
 						</div>
 
+						<div className="md:col-span-2">
+							<FilterSelect
+								value={activeTab}
+								onChange={setActiveTab}
+								options={[
+									{ value: "ทั้งหมด", label: "ทุกประเภท" },
+									{ value: "ของหาย", label: "ของหาย" },
+									{ value: "ของที่พบ", label: "ของที่พบ" },
+								]}
+							/>
+						</div>
+
 						<div className="md:col-span-3">
-							<select
+							<FilterSelect
 								value={selectedLocation}
-								onChange={(e) => setSelectedLocation(e.target.value)}
-								className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-orange-400 focus:bg-white transition text-gray-700 appearance-none cursor-pointer"
-							>
-								<option value="all">ทุกสถานที่ / คณะ</option>
-								{LOCATIONS.map((loc) => (
-									<option key={loc.value} value={loc.value}>{loc.label}</option>
-								))}
-							</select>
+								onChange={setSelectedLocation}
+								options={[
+									{ value: "all", label: "ทุกสถานที่ / คณะ" },
+									...LOCATIONS.map((l) => ({ value: l.value, label: l.label })),
+								]}
+							/>
 						</div>
 
 						<button
@@ -344,48 +513,52 @@ export default function AllPosts() {
 
 				{/* ---- ส่วนแสดงรายการประกาศ (Grid Cards) ---- */}
 				{!loading && !error && filteredPosts.length > 0 && (
+					<>
+					<div className="text-xs sm:text-sm text-gray-500 font-medium text-right">
+						<span className="text-orange-500 font-bold text-sm sm:text-base">{filteredPosts.length}</span> ประกาศ
+					</div>
 					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-						{filteredPosts.map((post) => (
+						{pagedPosts.map((post) => (
 							<div
 								key={post.id}
-								className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md border border-gray-100 transition-all flex flex-row sm:flex-col group cursor-pointer"
+								className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 transition-all duration-200 ease-out flex flex-row sm:flex-col group cursor-pointer hover:-translate-y-1 hover:shadow-[0_14px_36px_-6px_rgba(0,0,0,0.18)] active:translate-y-0 active:scale-[0.97] active:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+								role="link"
+								tabIndex={0}
 								onClick={() => navigate(`/postdetail/${post.id}`)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter") navigate(`/postdetail/${post.id}`);
+								}}
 							>
-								{/* ส่วนรูปภาพของโพสต์ — มือถือ: รูปเล็กด้านซ้ายเป็นแถว / จอใหญ่: รูปใหญ่ด้านบนเป็นการ์ด */}
-								<div className="relative w-24 h-24 sm:w-full sm:aspect-[4/3] flex-shrink-0 overflow-hidden bg-gray-100">
+								{/* มือถือ: รูปเล็กด้านซ้ายเป็นแถว (เหมือนเดิม) */}
+								<div className="sm:hidden relative w-24 h-24 flex-shrink-0 overflow-hidden bg-gray-100">
 									<img
 										src={post.image_url || FALLBACK_IMAGE}
 										alt={post.title}
-										className="w-full h-full object-cover sm:group-hover:scale-105 transition duration-500"
+										className="w-full h-full object-cover"
 										onError={(e) => {
 											(e.target as HTMLImageElement).src = FALLBACK_IMAGE;
 										}}
 									/>
+								</div>
 
-									{/* ป้ายประเภท: โชว์ทับรูปเฉพาะจอใหญ่ (รูปเล็กบนมือถือไม่พอที่ใส่ป้าย) */}
-									<div className={`hidden sm:flex absolute top-3 left-3 px-3 py-1.5 rounded-full items-center gap-2 shadow-sm select-none ${post.type === "lost" ? "bg-red-100" : "bg-sky-100"
-										}`}>
-										<span className={`w-2.5 h-2.5 rounded-full ${post.type === "lost" ? "bg-red-500" : "bg-sky-500"}`} />
-										<span className={`text-xs font-semibold tracking-wide ${post.type === "lost" ? "text-red-500" : "text-sky-500"}`}>
-											{typeLabel(post.type)}
-										</span>
-									</div>
+								{/* จอใหญ่: สไลด์รูปเลื่อนดูได้ */}
+								<div className="hidden sm:block">
+									<ImageCarousel post={post} />
 								</div>
 
 								{/* ส่วนเนื้อหาในโพสต์ */}
 								<div className="p-3 sm:p-5 flex-1 flex flex-col justify-center sm:justify-between gap-1.5 sm:gap-4 min-w-0">
-									<div className="space-y-1 sm:space-y-2">
-										{/* ป้ายประเภทแบบข้อความเล็ก โชว์เฉพาะมือถือ (แทนป้ายทับรูป) */}
-										<div className={`flex sm:hidden w-fit items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${post.type === "lost" ? "bg-red-100" : "bg-sky-100"}`}>
-											<span className={`w-1.5 h-1.5 rounded-full ${post.type === "lost" ? "bg-red-500" : "bg-sky-500"}`} />
-											<span className={post.type === "lost" ? "text-red-500" : "text-sky-500"}>{typeLabel(post.type)}</span>
-										</div>
-										<h3 className="text-sm sm:text-base font-semibold text-gray-800 line-clamp-1 sm:line-clamp-2 sm:pt-1 group-hover:text-orange-500 transition">
-											{post.title || "ไม่ระบุชื่อสิ่งของ"}
-										</h3>
+									{/* ป้ายประเภทแบบข้อความเล็ก โชว์เฉพาะมือถือ (แทนป้ายทับรูป) */}
+									<div className={`flex sm:hidden w-fit items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-white ${post.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
+										{post.type === "lost" ? "หาย" : "พบ"}
 									</div>
+									{/* ขีดสีส้มเล็กๆ เหนือชื่อ (จอใหญ่) */}
+									<div className="hidden sm:block w-8 h-1 rounded-full bg-orange-500 -mb-1.5" />
+									<h3 className="text-sm font-semibold text-gray-800 line-clamp-1 sm:text-2xl sm:font-extrabold sm:tracking-tight sm:text-gray-900 sm:leading-tight sm:line-clamp-2 group-hover:text-orange-500 transition">
+										{post.title || "ไม่ระบุชื่อสิ่งของ"}
+									</h3>
 
-									<div className="space-y-1 sm:space-y-2 sm:pt-2 sm:border-t sm:border-gray-100 text-[11px] sm:text-xs text-gray-500">
+									<div className="space-y-1 sm:space-y-2 sm:pt-2.5 sm:border-t sm:border-gray-100 text-[11px] sm:text-xs text-gray-500">
 										<div className="flex items-center gap-1.5 truncate">
 											<MapPin size={13} className="text-gray-400 flex-shrink-0" />
 											<span className="truncate">{post.location || "ไม่ระบุสถานที่"}</span>
@@ -397,7 +570,7 @@ export default function AllPosts() {
 									</div>
 
 									{/* แถวผู้ประกาศ + ปุ่มดูรายละเอียด: โชว์เฉพาะจอใหญ่ (การ์ดทั้งใบกดได้อยู่แล้วบนมือถือ) */}
-									<div className="hidden sm:flex items-center justify-between pt-3 border-t border-gray-100 mt-auto">
+									<div className="hidden sm:flex items-center pt-3 border-t border-gray-100 mt-auto">
 										<div className="flex items-center gap-2.5">
 											{post.reporter_avatar_url ? (
 												<img
@@ -418,20 +591,50 @@ export default function AllPosts() {
 											</span>
 										</div>
 
-										<button
-											onClick={(e) => {
-												e.stopPropagation();
-												navigate(`/postdetail/${post.id}`);
-											}}
-											className="text-xs bg-orange-50 hover:bg-orange-500 text-orange-600 hover:text-white font-semibold px-3 py-1.5 rounded-lg transition-all border border-orange-200 hover:border-orange-500 shadow-sm duration-200"
-										>
-											ดูรายละเอียดเพิ่มเติม
-										</button>
 									</div>
 								</div>
 							</div>
 						))}
 					</div>
+
+					{totalPages > 1 && (
+						<nav className="flex items-center justify-center gap-1.5 pt-2 pb-4" aria-label="เลือกหน้า">
+							<button
+								type="button"
+								onClick={() => goToPage(currentPage - 1)}
+								disabled={currentPage === 1}
+								aria-label="หน้าก่อนหน้า"
+								className="w-9 h-9 flex items-center justify-center rounded-full text-gray-500 hover:bg-white hover:shadow-sm disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:shadow-none transition"
+							>
+								<ChevronLeft size={18} />
+							</button>
+							{pageNumbers.map((n, i) =>
+								n === "gap" ? (
+									<span key={`gap-${i}`} className="w-6 text-center text-gray-400 select-none">…</span>
+								) : (
+									<button
+										key={n}
+										type="button"
+										onClick={() => goToPage(n)}
+										aria-current={n === currentPage ? "page" : undefined}
+										className={`min-w-9 h-9 px-2 rounded-full text-sm font-medium transition ${n === currentPage ? "bg-orange-500 text-white shadow-sm" : "text-gray-600 hover:bg-white hover:shadow-sm"}`}
+									>
+										{n}
+									</button>
+								)
+							)}
+							<button
+								type="button"
+								onClick={() => goToPage(currentPage + 1)}
+								disabled={currentPage === totalPages}
+								aria-label="หน้าถัดไป"
+								className="w-9 h-9 flex items-center justify-center rounded-full text-gray-500 hover:bg-white hover:shadow-sm disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:shadow-none transition"
+							>
+								<ChevronRight size={18} />
+							</button>
+						</nav>
+					)}
+					</>
 				)}
 
 			</div>

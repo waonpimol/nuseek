@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Form
-from nuseek.tools.supabase_tool import confirm_match, reject_match, complete_match, claim_item, confirm_claim, close_own_item
+from nuseek.tools.supabase_tool import confirm_match, reject_match, complete_match, claim_item, confirm_claim
 
 router = APIRouter()
 
@@ -36,15 +36,6 @@ def claim(item_id: str, user_id: str = Form(...)):
     result = claim_item(item_id, user_id)
     if not result.get("success"):
         raise HTTPException(status_code=400, detail=result.get("error", "แจ้งเจ้าของโพสต์ไม่สำเร็จ"))
-    return result
-
-
-@router.post("/items/{item_id}/close")
-def close_item(item_id: str, user_id: str = Form(...)):
-    """เจ้าของโพสต์ของหายเจอของเองแล้ว กดปิดเคสเอง"""
-    result = close_own_item(item_id, user_id)
-    if not result.get("success"):
-        raise HTTPException(status_code=400, detail=result.get("error", "ปิดเคสไม่สำเร็จ"))
     return result
 
 

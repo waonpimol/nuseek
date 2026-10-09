@@ -5,6 +5,7 @@ from routes.agent import router as agent_router
 from routes.search import router as search_router
 from routes.notifications import router as notifications_router
 from routes.matches import router as matches_router
+from routes.identify import router as identify_router
 
 app = FastAPI()
 
@@ -21,6 +22,7 @@ app.include_router(agent_router)
 app.include_router(search_router)
 app.include_router(notifications_router)
 app.include_router(matches_router)
+app.include_router(identify_router)
 
 
 @app.get("/")

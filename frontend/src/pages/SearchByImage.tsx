@@ -26,8 +26,9 @@ import Spinner from "../components/Spinner";
 import { supabase } from "../services/supabaseClient";
 import LoadingOverlay from "../components/LoadingOverlay";
 
+
+
 const FALLBACK_IMAGE = getPlaceholderImage(300, 225);
-const typeLabel = (type: string) => (type === "lost" ? "ของหาย" : "ของที่พบ");
 
 export default function SearchByImage() {
   const navigate = useNavigate();
@@ -344,11 +345,8 @@ export default function SearchByImage() {
                           (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
                         }}
                       />
-                      <div className={`hidden sm:flex absolute top-3 left-3 px-3 py-1.5 rounded-full items-center gap-2 shadow-sm select-none ${item.type === "lost" ? "bg-red-100" : "bg-sky-100"}`}>
-                        <span className={`w-2.5 h-2.5 rounded-full ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`} />
-                        <span className={`text-xs font-semibold tracking-wide ${item.type === "lost" ? "text-red-500" : "text-sky-500"}`}>
-                          {typeLabel(item.type)}
-                        </span>
+                      <div className={`hidden sm:flex absolute top-3 left-3 px-3 py-1.5 rounded-full items-center shadow-sm select-none text-xs font-semibold tracking-wide text-white ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
+                        {item.type === "lost" ? "หาย" : "พบ"}
                       </div>
                       <div className="hidden sm:block absolute top-3 right-3 bg-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">
                         {Math.round((item.score || 0) * 100)}%
@@ -356,9 +354,8 @@ export default function SearchByImage() {
                     </div>
 
                     <div className="p-3 sm:p-4 flex-1 flex flex-col justify-center sm:justify-start gap-1.5 sm:space-y-2 min-w-0">
-                      <div className={`flex sm:hidden w-fit items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${item.type === "lost" ? "bg-red-100" : "bg-sky-100"}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`} />
-                        <span className={item.type === "lost" ? "text-red-500" : "text-sky-500"}>{typeLabel(item.type)}</span>
+                      <div className={`flex sm:hidden w-fit items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-white ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
+                        {item.type === "lost" ? "หาย" : "พบ"}
                       </div>
                       <h4 className="text-sm font-semibold text-gray-800 line-clamp-1 sm:line-clamp-2">
                         {item.title || "ไม่ระบุชื่อสิ่งของ"}
@@ -368,7 +365,7 @@ export default function SearchByImage() {
                         <span className="truncate">{item.location || "ไม่ระบุสถานที่"}</span>
                       </div>
                       {item.created_at && (
-                        <div className="hidden sm:flex items-center gap-1.5 text-xs text-gray-400">
+                        <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-gray-500">
                           <Clock size={13} className="flex-shrink-0" />
                           <span>{formatRelativeTime(item.created_at)}</span>
                         </div>

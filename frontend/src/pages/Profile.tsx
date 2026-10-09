@@ -13,6 +13,8 @@ import {
   Clock,
   Menu,
   X,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { supabase } from "../services/supabaseClient";
 import { getMyItems } from "../services/api";
@@ -31,7 +33,8 @@ interface UserProfile {
 }
 
 const FALLBACK_IMAGE = getPlaceholderImage(200, 150);
-const typeLabel = (type: string) => (type === "lost" ? "ของหาย" : "ของที่พบ");
+const MOBILE_PREVIEW = 3;
+const DESKTOP_PREVIEW = 6;
 
 // Avatar แบบ hybrid: มีรูป -> โชว์รูป, ไม่มีรูป -> ตัวอักษรแรก + สีจาก getAvatarColor (สูตรกลาง)
 // ถ้าส่ง className มา จะใช้ className กำหนดขนาด (รองรับ responsive เช่น "w-20 h-20 sm:w-28 sm:h-28")
@@ -79,6 +82,7 @@ const Avatar = ({
 export default function Profile() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("all");
+  const [showAllItems, setShowAllItems] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showNoti, setShowNoti] = useState(false);
@@ -372,7 +376,7 @@ export default function Profile() {
 
           <div className="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-6 shadow-sm text-center">
             <h3 className="text-lg sm:text-4xl font-bold text-green-500">{itemsLoading ? <span className="inline-block h-5 sm:h-9 w-8 sm:w-14 rounded-full bg-gray-200 animate-pulse align-middle" /> : matchedCount}</h3>
-            <p className="text-gray-500 mt-0.5 sm:mt-2 text-[10px] sm:text-base leading-tight">พบเจ้าของแล้ว</p>
+            <p className="text-gray-500 mt-0.5 sm:mt-2 text-[10px] sm:text-base leading-tight">สำเร็จ</p>
           </div>
         </div>
 
@@ -411,11 +415,11 @@ export default function Profile() {
               ["all", "ทั้งหมด"],
               ["lost", "ของหาย"],
               ["found", "ของที่พบ"],
-              ["success", "พบเจ้าของแล้ว"],
+              ["success", "สำเร็จ"],
             ].map(([key, label]) => (
               <button
                 key={key}
-                onClick={() => setActiveTab(key)}
+                onClick={() => { setActiveTab(key); setShowAllItems(false); }}
                 className={`whitespace-nowrap px-3 py-1.5 text-xs sm:px-5 sm:py-2 sm:text-base rounded-full transition
                 ${activeTab === key
                     ? "bg-orange-500 text-white"
@@ -456,11 +460,20 @@ export default function Profile() {
 
           {!itemsLoading && filteredItems.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5 mt-5 sm:mt-6">
-              {filteredItems.map((item) => (
+              {filteredItems.map((item, index) => {
+                // ย่อรายการตอนยังไม่กด "ดูเพิ่มเติม": มือถือโชว์ 3 โพสต์ / จอใหญ่โชว์ 6 โพสต์ (2 แถว)
+                const visibility = showAllItems
+                  ? "flex"
+                  : index >= DESKTOP_PREVIEW
+                    ? "hidden"
+                    : index >= MOBILE_PREVIEW
+                      ? "hidden sm:flex"
+                      : "flex";
+                return (
                 <div
                   key={item.id}
                   onClick={() => navigate(`/postdetail/${item.id}`)}
-                  className="border border-gray-100 rounded-2xl overflow-hidden hover:shadow-md transition cursor-pointer flex flex-row sm:flex-col"
+                  className={`border border-gray-100 rounded-2xl overflow-hidden hover:shadow-md transition cursor-pointer flex-row sm:flex-col ${visibility}`}
                 >
                   <div className="relative w-24 h-24 sm:w-full sm:aspect-[4/3] flex-shrink-0 bg-gray-100">
                     <img
@@ -472,28 +485,24 @@ export default function Profile() {
                       }}
                     />
                     {item.status !== "matched" && (
-                      <div className={`hidden sm:flex absolute top-2 left-2 px-2.5 py-1 rounded-full items-center gap-1.5 shadow-sm text-xs font-semibold ${item.type === "lost" ? "bg-red-100" : "bg-sky-100"}`}>
-                        <span className={`w-2 h-2 rounded-full ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`} />
-                        <span className={item.type === "lost" ? "text-red-500" : "text-sky-500"}>{typeLabel(item.type)}</span>
+                      <div className={`hidden sm:flex absolute top-2 left-2 px-2.5 py-1 rounded-full items-center shadow-sm text-xs font-semibold text-white ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
+                        {item.type === "lost" ? "หาย" : "พบ"}
                       </div>
                     )}
                     {item.status === "matched" && (
-                      <div className="hidden sm:flex absolute top-2 left-2 bg-green-100 px-2.5 py-1 rounded-full items-center gap-1.5 text-xs font-semibold shadow-sm">
-                        <span className="w-2 h-2 rounded-full bg-green-500" />
-                        <span className="text-green-500">พบเจ้าของแล้ว</span>
+                      <div className="hidden sm:flex absolute top-2 left-2 bg-green-500 text-white px-2.5 py-1 rounded-full items-center text-xs font-semibold shadow-sm">
+                        สำเร็จ
                       </div>
                     )}
                   </div>
                   <div className="p-3 sm:p-4 flex flex-col justify-center sm:justify-start gap-1 sm:space-y-2 min-w-0">
                     {item.status === "matched" ? (
-                      <div className="sm:hidden inline-flex w-fit items-center gap-1.5 bg-green-100 px-2 py-0.5 rounded-full text-[11px] font-semibold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                        <span className="text-green-500">พบเจ้าของแล้ว</span>
+                      <div className="sm:hidden inline-flex w-fit items-center bg-green-500 text-white px-2.5 py-0.5 rounded-full text-[11px] font-semibold">
+                        สำเร็จ
                       </div>
                     ) : (
-                      <div className={`sm:hidden inline-flex w-fit items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${item.type === "lost" ? "bg-red-100" : "bg-sky-100"}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${item.type === "lost" ? "bg-red-600" : "bg-sky-500"}`} />
-                        <span className={item.type === "lost" ? "text-red-500" : "text-sky-500"}>{typeLabel(item.type)}</span>
+                      <div className={`sm:hidden inline-flex w-fit items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-white ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
+                        {item.type === "lost" ? "หาย" : "พบ"}
                       </div>
                     )}
                     <h4 className="text-sm sm:text-base font-semibold text-gray-800 line-clamp-1">{item.title || "ไม่ระบุชื่อสิ่งของ"}</h4>
@@ -512,7 +521,25 @@ export default function Profile() {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
+            </div>
+          )}
+
+          {/* ปุ่มดูเพิ่มเติม/ซ่อน: โชว์เมื่อมีโพสต์เกินจำนวนที่แสดง (มือถือ > 3 / จอใหญ่ > 6) */}
+          {!itemsLoading && filteredItems.length > MOBILE_PREVIEW && (
+            <div className={`flex justify-center mt-4 sm:mt-6 ${filteredItems.length <= DESKTOP_PREVIEW ? "sm:hidden" : ""}`}>
+              <button
+                type="button"
+                onClick={() => setShowAllItems((v) => !v)}
+                className="inline-flex items-center gap-1.5 px-5 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition"
+              >
+                {showAllItems ? (
+                  <>ซ่อน <ChevronUp size={16} /></>
+                ) : (
+                  <>ดูเพิ่มเติม <ChevronDown size={16} /></>
+                )}
+              </button>
             </div>
           )}
         </div>
