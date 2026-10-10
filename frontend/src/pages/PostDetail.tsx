@@ -4,7 +4,6 @@ import {
   Home,
   Image as ImageIcon,
   FileText,
-  Bell,
   User,
   MapPin,
   Clock,
@@ -18,6 +17,7 @@ import {
   Link2,
   AtSign,
   Pencil,
+  MoreHorizontal,
   ChevronLeft,
   ChevronRight,
   Trash2
@@ -25,11 +25,12 @@ import {
 import { getItem, confirmMatch, rejectMatch, completeMatch, claimItem, confirmClaim, updateOwnItem, deleteOwnItem } from '../services/api';
 import { formatRelativeTime, formatFullDate } from '../utils/format';
 import { getPlaceholderImage } from '../utils/placeholder';
-import { useNotifications } from '../hooks/useNotifications';
+import NotificationBell from '../components/NotificationBell';
 import { supabase } from '../services/supabaseClient';
 import { getAvatarColor, getAvatarInitial } from '../utils/avatar';
 import ResultModal from '../components/ResultModal';
 import PageLoader from '../components/PageLoader';
+import ErrorState from '../components/ErrorState';
 import EditPostModal from '../components/EditPostModal';
 
 const FALLBACK_IMAGE = getPlaceholderImage(600, 400);
@@ -92,25 +93,8 @@ function ContactList({
 export default function PostDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const [showNoti, setShowNoti] = useState(false);
-  const bellButtonRef = useRef<HTMLButtonElement>(null);
-  const notifDropdownRef = useRef<HTMLDivElement>(null);
-  const [arrowLeft, setArrowLeft] = useState<number | null>(null);
 
-  // คำนวณตำแหน่งลูกศรให้ชี้ตรงกระดิ่งเสมอ ไม่ว่ากล่องแจ้งเตือนจะอยู่ตำแหน่งไหน
-  // (มือถือ: กล่องอยู่กึ่งกลางจอ / จอใหญ่: กล่องยึดกับกระดิ่ง ตำแหน่งไม่เท่ากัน คำนวณสดเลยแม่นกว่า)
-  useEffect(() => {
-    if (showNoti && bellButtonRef.current && notifDropdownRef.current) {
-      const bellRect = bellButtonRef.current.getBoundingClientRect();
-      const dropdownRect = notifDropdownRef.current.getBoundingClientRect();
-      const bellCenterX = bellRect.left + bellRect.width / 2;
-      let left = bellCenterX - dropdownRect.left - 8;
-      left = Math.max(12, Math.min(left, dropdownRect.width - 28));
-      setArrowLeft(left);
-    }
-  }, [showNoti]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications();
 
   const [post, setPost] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -133,6 +117,22 @@ export default function PostDetail() {
   const [editError, setEditError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // เมนู ⋯ ของเจ้าของโพสต์ (แก้ไข/ลบ)
+  const [ownerMenuOpen, setOwnerMenuOpen] = useState(false);
+  const ownerMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!ownerMenuOpen) return;
+    const onDown = (e: globalThis.MouseEvent) => {
+      if (ownerMenuRef.current && !ownerMenuRef.current.contains(e.target as Node)) setOwnerMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOwnerMenuOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [ownerMenuOpen]);
 
   // แจ้งผลลัพธ์การกระทำต่างๆ ในหน้านี้ (ยืนยัน/ปฏิเสธ/ปิดเคส) ด้วย modal ในแอปเอง
   // แทน alert() ของเบราว์เซอร์ ที่จะโชว์ข้อความ "localhost บอกว่า..." ไม่สวยและดูไม่น่าเชื่อถือ
@@ -396,56 +396,7 @@ export default function PostDetail() {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-            <div className="relative">
-              <button
-                ref={bellButtonRef} onClick={() => setShowNoti(!showNoti)}
-                className={`p-2 rounded-full transition relative ${showNoti ? "text-orange-500 bg-orange-50" : "text-gray-600 hover:text-orange-500 hover:bg-gray-100"
-                  }`}
-              >
-                <Bell />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-2 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
-                )}
-              </button>
-
-              {showNoti && (
-                <div ref={notifDropdownRef} className="fixed sm:absolute top-16 sm:top-12 left-1/2 -translate-x-1/2 w-[80vw] max-w-[300px] sm:translate-x-0 sm:left-auto sm:-right-16 sm:w-[92vw] sm:max-w-[360px] bg-white rounded-2xl border border-gray-200 shadow-xl z-50 font-kanit">
-                  <div className="absolute -top-2 w-4 h-4 bg-white border-t border-l border-gray-200 rotate-45 z-10" style={{ left: arrowLeft !== null ? `${arrowLeft}px` : undefined, right: arrowLeft !== null ? undefined : '73px' }}></div>
-                  <div className="relative z-20 bg-white rounded-2xl overflow-hidden">
-                    <div className="flex justify-between items-center px-3 py-2.5 sm:px-5 sm:py-3.5 border-b border-gray-100">
-                      <span className="font-bold text-gray-800 text-xs sm:text-sm">การแจ้งเตือน</span>
-                      <button onClick={markAllRead} className="text-[10px] sm:text-xs font-semibold text-orange-500 hover:underline">อ่านทั้งหมด</button>
-                    </div>
-                    <div className="max-h-[260px] sm:max-h-[320px] overflow-y-auto divide-y divide-gray-100">
-                      {notifications.length === 0 && (
-                        <div className="p-6 text-center text-xs text-gray-400">ยังไม่มีแจ้งเตือน</div>
-                      )}
-                      {notifications.map((n) => (
-                        <div
-                          key={n.id}
-                          onClick={() => {
-                            markOneRead(n.id);
-                            const targetItemId = n.matched_item_id || n.item_id; if (targetItemId) navigate(`/postdetail/${targetItemId}`);
-                          }}
-                          className={`flex gap-2 p-2.5 sm:gap-3 sm:p-4 hover:bg-gray-50 transition cursor-pointer text-left ${n.is_read ? "" : "bg-orange-50/40"}`}
-                        >
-                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="12" cy="12" r="9" />
-                              <path d="M8 12l3 3 5-6" />
-                            </svg>
-                          </div>
-                          <div className="flex flex-col gap-0.5 flex-1">
-                            <p className="text-[10px] sm:text-[11px] text-gray-600 leading-normal">{n.message}</p>
-                            <span className="text-[9px] sm:text-[10px] text-gray-400">{formatRelativeTime(n.created_at)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <NotificationBell />
             <Link to="/profile" className="hover:text-orange-500 text-gray-600">
               <User size={22} />
             </Link>
@@ -492,101 +443,163 @@ export default function PostDetail() {
           )}
 
           {!loading && error && (
-            <div style={styles.stateBox}>{error}</div>
+            <ErrorState title={error} description="ลองกลับไปที่หน้าประกาศแล้วเลือกใหม่อีกครั้ง" />
           )}
 
           {!loading && !error && post && (
             <div style={styles.detailCard}>
-
-              {/* หัวข้อโพสต์และสถานะ */}
-              <div style={styles.headerRow}>
-                <h1 style={styles.itemTitle}>{post.title || "ไม่ระบุชื่อสิ่งของ"}</h1>
-                <span
-                  style={{
-                    ...styles.statusBadge,
-                    backgroundColor: post.status === "matched" ? "#00c950" : post.type === "lost" ? "#FF2D38" : "#00A3EF",
-                  }}
-                >
-                  {post.status === "matched" ? "สำเร็จ" : post.type === "lost" ? "หาย" : "พบ"}
-                </span>
-              </div>
-
-              {/* ช่วงเวลาที่ลงโพสต์ */}
-              <div style={styles.timeBadge}>
-                <Clock size={14} style={{ color: '#718096' }} />
-                <span>
-                  {post.status === "matched" && post.resolved_at
-                    ? `จบเคส ${formatRelativeTime(post.resolved_at)}`
-                    : post.created_at ? formatRelativeTime(post.created_at) : "-"}
-                </span>
-              </div>
-
-              {/* สถานที่หายหรือพบ */}
-              <div style={styles.locationRow}>
-                <MapPin size={16} style={{ color: '#718096' }} />
-                <span style={styles.locationText}>{post.location || "ไม่ระบุสถานที่"}</span>
-              </div>
-
-              {/* รูปภาพ: หลายรูปเลื่อนดูได้ (ปัดบนมือถือ / กดลูกศรบนจอใหญ่) */}
-              <div className="relative w-full max-w-[560px] mx-auto mb-4 rounded-lg overflow-hidden bg-gray-50">
-                <div
-                  ref={galleryRef}
-                  onScroll={() => {
-                    const el = galleryRef.current;
-                    if (el && el.clientWidth) setActiveImage(Math.round(el.scrollLeft / el.clientWidth));
-                  }}
-                  className="flex w-full overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                >
-                  {(galleryImages.length ? galleryImages : [FALLBACK_IMAGE]).map((url, i) => (
-                    <div key={url + i} className="w-full flex-shrink-0 snap-center flex items-center justify-center h-[280px] sm:h-[380px]">
-                      <img
-                        src={url}
-                        alt={`รูปที่ ${i + 1}`}
-                        draggable={false}
-                        className="max-w-full max-h-full object-contain"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                {galleryImages.length > 1 && (
+              {(() => {
+                const statusColor = post.status === "matched" ? "#00c950" : post.type === "lost" ? "#FF2D38" : "#00A3EF";
+                const statusLabel = post.status === "matched" ? "สำเร็จ" : post.type === "lost" ? "หาย" : "พบ";
+                return (
                   <>
-                    <span className="absolute top-3 right-3 text-xs font-semibold text-white bg-black/55 rounded-full px-2.5 py-0.5 select-none pointer-events-none">
-                      {activeImage + 1}/{galleryImages.length}
-                    </span>
-                    {activeImage > 0 && (
-                      <button
-                        type="button"
-                        aria-label="รูปก่อนหน้า"
-                        onClick={() => goToImage(activeImage - 1)}
-                        className="hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow hover:bg-white transition"
+                    {/* รูปภาพเต็มขอบการ์ด: หลายรูปเลื่อนดูได้ (ปัดบนมือถือ / กดลูกศรบนจอใหญ่)
+                        พื้นหลังเป็นรูปเดียวกันเบลอ แทนแถบเทาข้างรูป */}
+                    <div className="relative w-full bg-gray-100">
+                      <div style={{ height: 4, backgroundColor: statusColor }} className="absolute top-0 inset-x-0 z-10" />
+                      <div
+                        ref={galleryRef}
+                        onScroll={() => {
+                          const el = galleryRef.current;
+                          if (el && el.clientWidth) setActiveImage(Math.round(el.scrollLeft / el.clientWidth));
+                        }}
+                        className="flex w-full overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                       >
-                        <ChevronLeft size={20} />
-                      </button>
-                    )}
-                    {activeImage < galleryImages.length - 1 && (
-                      <button
-                        type="button"
-                        aria-label="รูปถัดไป"
-                        onClick={() => goToImage(activeImage + 1)}
-                        className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow hover:bg-white transition"
+                        {(galleryImages.length ? galleryImages : [FALLBACK_IMAGE]).map((url, i) => (
+                          <div key={url + i} className="relative w-full flex-shrink-0 snap-center flex items-center justify-center h-[280px] sm:h-[400px] overflow-hidden bg-gray-100">
+                            <img src={url} alt="" aria-hidden="true" draggable={false} className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-60" />
+                            <img
+                              src={url}
+                              alt={`รูปที่ ${i + 1}`}
+                              draggable={false}
+                              className="relative max-w-full max-h-full object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* ป้ายสถานะทับมุมรูป */}
+                      <span
+                        style={{ backgroundColor: statusColor }}
+                        className="absolute top-4 left-3 sm:left-4 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold text-white shadow-sm select-none pointer-events-none"
                       >
-                        <ChevronRight size={20} />
-                      </button>
-                    )}
-                    <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 pointer-events-none">
-                      {galleryImages.map((_, i) => (
-                        <span
-                          key={i}
-                          className={`h-1.5 rounded-full transition-all ${i === activeImage ? 'w-4 bg-orange-500' : 'w-1.5 bg-gray-400/70'}`}
-                        />
-                      ))}
+                        {statusLabel}
+                      </span>
+
+                      {galleryImages.length > 1 && (
+                        <>
+                          <span className="absolute top-4 right-3 sm:right-4 text-xs font-semibold text-white bg-black/55 rounded-full px-2.5 py-0.5 select-none pointer-events-none">
+                            {activeImage + 1}/{galleryImages.length}
+                          </span>
+                          {activeImage > 0 && (
+                            <button
+                              type="button"
+                              aria-label="รูปก่อนหน้า"
+                              onClick={() => goToImage(activeImage - 1)}
+                              className="hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow hover:bg-white transition"
+                            >
+                              <ChevronLeft size={20} />
+                            </button>
+                          )}
+                          {activeImage < galleryImages.length - 1 && (
+                            <button
+                              type="button"
+                              aria-label="รูปถัดไป"
+                              onClick={() => goToImage(activeImage + 1)}
+                              className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow hover:bg-white transition"
+                            >
+                              <ChevronRight size={20} />
+                            </button>
+                          )}
+                          <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 pointer-events-none">
+                            {galleryImages.map((_, i) => (
+                              <span
+                                key={i}
+                                className={`h-1.5 rounded-full transition-all ${i === activeImage ? 'w-4 bg-orange-500' : 'w-1.5 bg-white/70'}`}
+                              />
+                            ))}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </>
+                );
+              })()}
+
+              <div style={styles.cardBody}>
+
+              {/* ชื่อสิ่งของ + ขีดสีส้ม + เมนู ⋯ (เจ้าของโพสต์) */}
+              <div className="flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <h1 style={styles.itemTitle}>{post.title || "ไม่ระบุชื่อสิ่งของ"}</h1>
+                  <div className="mt-2 w-8 h-1 rounded-full bg-orange-500" />
+                </div>
+                {showOwnerTools && (
+                  <div className="relative flex-shrink-0" ref={ownerMenuRef}>
+                    <button
+                      type="button"
+                      aria-label="เมนูจัดการประกาศ"
+                      aria-haspopup="menu"
+                      aria-expanded={ownerMenuOpen}
+                      onClick={() => setOwnerMenuOpen((o) => !o)}
+                      className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition"
+                    >
+                      <MoreHorizontal size={18} />
+                    </button>
+                    {ownerMenuOpen && (
+                      <div role="menu" className="absolute right-0 top-11 z-20 w-44 bg-white rounded-xl border border-gray-100 shadow-[0_12px_32px_-6px_rgba(0,0,0,0.2)] py-1.5">
+                        {canEditPost && (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => { setOwnerMenuOpen(false); setEditError(null); setShowEditModal(true); }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                          >
+                            <Pencil size={15} /> แก้ไขประกาศ
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          role="menuitem"
+                          disabled={deleting}
+                          onClick={() => { setOwnerMenuOpen(false); setShowDeleteConfirm(true); }}
+                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition disabled:opacity-50"
+                        >
+                          <Trash2 size={15} /> ลบประกาศ
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
+              </div>
+
+              {/* ข้อมูลหลัก: สถานที่ + เวลา เป็นการ์ดไอคอน */}
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+                <div className="flex items-center gap-2.5 rounded-2xl bg-orange-50 px-3 py-2.5 min-w-0">
+                  <span className="w-9 h-9 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center flex-shrink-0">
+                    <MapPin size={18} />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-[11px] text-gray-500">สถานที่</div>
+                    <div className="text-xs sm:text-sm font-semibold text-gray-800 break-words leading-snug">{post.location || "ไม่ระบุสถานที่"}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5 rounded-2xl bg-sky-50 px-3 py-2.5 min-w-0">
+                  <span className="w-9 h-9 rounded-full bg-sky-100 text-sky-500 flex items-center justify-center flex-shrink-0">
+                    <Clock size={18} />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-[11px] text-gray-500">{post.status === "matched" && post.resolved_at ? "จบเคส" : "ลงประกาศ"}</div>
+                    <div className="text-xs sm:text-sm font-semibold text-gray-800 leading-snug">
+                      {post.status === "matched" && post.resolved_at
+                        ? formatRelativeTime(post.resolved_at)
+                        : post.created_at ? formatRelativeTime(post.created_at) : "-"}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* กล่องแจ้งว่ามีแมทช์รออยู่ + ปุ่มยืนยัน/ไม่ใช่ของฉัน (โชว์เฉพาะเจ้าของของหายเอง) */}
@@ -646,53 +659,6 @@ export default function PostDetail() {
                       : isMatchLostOwner
                         ? "ได้รับของคืนแล้ว ปิดเคสนี้"
                         : "ส่งคืนของแล้ว ปิดเคสนี้"}
-                  </button>
-                </div>
-              )}
-
-              {/* เจ้าของโพสต์ลงผิด → แก้ไข / ลบประกาศ */}
-              {showOwnerTools && (
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  {canEditPost && (
-                    <button
-                      onClick={() => { setEditError(null); setShowEditModal(true); }}
-                      style={{ ...styles.rejectMatchBtn, color: '#4A5568', border: '1px solid #CBD5E0', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                    >
-                      <Pencil size={14} /> แก้ไขประกาศ
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setShowDeleteConfirm(true)}
-                    disabled={deleting}
-                    style={{ ...styles.rejectMatchBtn, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                  >
-                    <Trash2 size={14} /> ลบประกาศ
-                  </button>
-                </div>
-              )}
-
-              {/* ปุ่มอ้างสิทธิ์/แจ้งว่าเจอของ — สำหรับคนที่มาเจอโพสต์นี้เองผ่านการค้นหาด้วยรูปหรือไล่ดูหน้าประกาศ
-                  ไม่ได้มาจากระบบแมทช์อัตโนมัติ ข้อความสลับกันตามประเภทโพสต์ */}
-              {showClaimButton && !claimed && (
-                <div style={styles.matchBox}>
-                  <div style={styles.matchBoxText}>
-                    <CheckCircle2 size={20} style={{ color: '#16A34A', flexShrink: 0 }} />
-                    <span>
-                      {post.type === "lost"
-                        ? "เจอของชิ้นนี้ใช่ไหม? กดยืนยันเพื่อแจ้งให้เจ้าของโพสต์ติดต่อกลับ"
-                        : "คิดว่าสิ่งของนี้เป็นของคุณใช่ไหม? กดยืนยันเพื่อแจ้งให้เจ้าของโพสต์ติดต่อกลับ"}
-                    </span>
-                  </div>
-                  <button
-                    onClick={handleClaim}
-                    disabled={claiming}
-                    style={styles.confirmMatchBtn}
-                  >
-                    {claiming
-                      ? "กำลังส่ง..."
-                      : post.type === "lost"
-                        ? "เจอของชิ้นนี้แล้ว แจ้งเจ้าของโพสต์"
-                        : "ใช่ของฉัน แจ้งเจ้าของโพสต์"}
                   </button>
                 </div>
               )}
@@ -812,6 +778,29 @@ export default function PostDetail() {
                 </>
               )}
 
+              {/* กันแถบปุ่มลอยด้านล่างบังเนื้อหาท้ายหน้า */}
+              {showClaimButton && !claimed && <div className="h-16" aria-hidden="true" />}
+
+              </div>
+
+              {/* แถบปุ่มอ้างสิทธิ์ลอยด้านล่างจอ (เฉพาะคนที่ไม่ใช่เจ้าของโพสต์ — เงื่อนไขเดิม showClaimButton) */}
+              {showClaimButton && !claimed && (
+                <div className="fixed z-40 bottom-3 inset-x-3 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[600px] flex items-center gap-3 bg-white/95 backdrop-blur rounded-2xl border border-gray-100 shadow-[0_12px_32px_-6px_rgba(0,0,0,0.25)] px-3.5 py-2.5">
+                  <p className="flex-1 min-w-0 text-xs sm:text-sm text-gray-600 leading-snug">
+                    {post.type === "lost"
+                      ? "เจอของชิ้นนี้ใช่ไหม? แจ้งให้เจ้าของติดต่อกลับ"
+                      : "คิดว่าเป็นของคุณใช่ไหม? แจ้งให้เจ้าของโพสต์ติดต่อกลับ"}
+                  </p>
+                  <button
+                    onClick={handleClaim}
+                    disabled={claiming}
+                    className="flex-shrink-0 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition"
+                  >
+                    {claiming ? "กำลังส่ง..." : post.type === "lost" ? "เจอของชิ้นนี้แล้ว" : "ใช่ของฉัน"}
+                  </button>
+                </div>
+              )}
+
             </div>
           )}
 
@@ -878,9 +867,9 @@ const styles: Record<string, React.CSSProperties> = {
 
   backBtn: { display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'transparent', border: 'none', color: '#A0AEC0', fontSize: '12px', cursor: 'pointer', width: 'fit-content', padding: 0, textDecoration: 'none' },
 
-  stateBox: { textAlign: 'center' as const, color: '#A0AEC0', padding: '60px 0' },
 
-  detailCard: { backgroundColor: '#FFFFFF', borderRadius: 'clamp(14px, 4vw, 28px)', border: '1px solid #E2E8F0', padding: 'clamp(14px, 4vw, 36px)', display: 'flex', flexDirection: 'column' as const, gap: '10px', boxShadow: '0 10px 30px rgba(0,0,0,0.03)', boxSizing: 'border-box' },
+  detailCard: { backgroundColor: '#FFFFFF', borderRadius: 'clamp(14px, 4vw, 28px)', border: '1px solid #E2E8F0', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' as const, gap: 0, boxShadow: '0 10px 30px rgba(0,0,0,0.03)', boxSizing: 'border-box' },
+  cardBody: { padding: 'clamp(14px, 4vw, 36px)', display: 'flex', flexDirection: 'column' as const, gap: '10px', boxSizing: 'border-box' },
 
   headerRow: { display: 'flex', alignItems: 'center', gap: '6px' },
   itemTitle: { fontSize: 'clamp(15px, 4.5vw, 24px)', fontWeight: 'bold', color: '#1A202C', margin: 0 },

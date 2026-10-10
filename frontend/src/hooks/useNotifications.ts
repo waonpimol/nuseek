@@ -13,6 +13,7 @@ export interface AppNotification {
   item_id: string | null;
   matched_item_id: string | null;
   match_id: string | null;
+  title?: string | null; // หัวข้อ (แจ้งเตือนเก่าอาจไม่มี ใช้ getNotificationTitle เดาให้)
   message: string;
   is_read: boolean;
   created_at: string;

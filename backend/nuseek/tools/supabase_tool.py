@@ -98,104 +98,6 @@ def search_similar_items(current_type, embedding, top_k=5, threshold=0.6):
     rows = result.data or []
     return [attach_image_url(x) for x in rows if x.get("score", 0) >= threshold]
 
-
-# ==========================================
-# INSERT ITEM (เวอร์ชัน ADK tool — เก็บไว้เผื่อ agent อื่นเรียกใช้ ปัจจุบัน /report ไม่ได้ใช้แล้ว)
-# ==========================================
-def insert_item(item_type, title, description, contact_phone, tool_context: ToolContext):
-    """
-    บันทึก item ลง Supabase
-    โดยดึง embedding, image_path, location และ user_id จาก ADK state
-    (ไม่รับเป็นพารามิเตอร์จาก LLM เพื่อกันไม่ให้ LLM พิมพ์/เดาผิดหรือส่งค่าว่างมาโดยไม่ตั้งใจ
-    ค่าพวกนี้มาจากตัวเลือกจริงที่ผู้ใช้กรอกในฟอร์มเสมอ)
-    """
-
-    # ดึง embedding จาก state
-    embedding = tool_context.state.get("embedding")
-
-    # ตรวจสอบ embedding
-    if not embedding:
-        return {
-            "success": False,
-            "error": "ไม่พบ embedding ใน state"
-        }
-
-    # ดึง image_path จาก state (ตั้งค่าไว้ล่วงหน้าตอนสร้าง session ใน routes/agent.py)
-    image_path = tool_context.state.get("image_path", "")
-
-    # ดึง location ที่ผู้ใช้เลือกจาก dropdown ในฟอร์มจาก state เช่นเดียวกัน
-    location = tool_context.state.get("location", "")
-
-    # ดึง user_id ของผู้ประกาศจาก state เช่นเดียวกัน (None ถ้าไม่ได้ login)
-    reporter_user_id = tool_context.state.get("reporter_user_id")
-
-    data = {
-        "type": item_type,
-        "title": title,
-        "description": description,
-        "image_path": image_path,
-        "location": location,
-        "contact_phone": contact_phone,
-        "embedding": embedding,
-        "status": "active",
-        "user_id": reporter_user_id,
-    }
-
-    result = supabase.table("items").insert(data).execute()
-    return result.data
-
-
-# ==========================================
-# SEARCH VECTOR
-# ==========================================
-def search_vector(
-    current_type,
-    tool_context: ToolContext,
-    top_k=5,
-    threshold=0.7
-):
-
-     # ดึง embedding จาก state
-    embedding = tool_context.state.get("embedding")
-
-    if not embedding:
-        return []
-
-    # กำหนดประเภทที่ต้องการค้นหา
-    if current_type == "lost":
-        target = "found"
-
-    elif current_type == "found":
-        target = "lost"
-
-    else:
-        raise ValueError(
-            "current_type must be lost or found"
-        )
-
-    # ค้นหาด้วย pgvector
-    result = (
-        supabase
-        .rpc(
-            "search_items",
-            {
-                "query_embedding": embedding,
-                "match_type": target,
-                "match_count": top_k
-            }
-        )
-        .execute()
-    )
-
-    rows = result.data or []
-
-    # กรองตาม threshold แล้วเติม image_url ให้แต่ละรายการ
-    return [
-        attach_image_url(x)
-        for x in rows
-        if x.get("score", 0) >= threshold
-    ]
-
 # ==========================================
 # SEARCH BY EMBEDDING (plain function, ไม่ผ่าน ADK state)
 # ใช้โดย endpoint /search-by-image ที่ไม่ต้องพึ่ง LLM agent
@@ -284,26 +186,28 @@ def log_search_query(caption_en: str, caption_th: str, candidates: list, shown_c
 # ==========================================
 # NOTIFICATIONS
 # ==========================================
-def create_notification(user_id, item_id, matched_item_id, message, match_id=None):
-    """สร้างแจ้งเตือน 1 รายการให้ user_id คนหนึ่ง (ข้ามถ้าไม่มี user_id เช่นโพสต์แบบไม่ login)"""
+def create_notification(user_id, item_id, matched_item_id, message, match_id=None, title=None):
+    """สร้างแจ้งเตือน 1 รายการให้ user_id คนหนึ่ง (ข้ามถ้าไม่มี user_id เช่นโพสต์แบบไม่ login)
+    title = หัวข้อสั้นๆ ที่หน้าเว็บโชว์เป็นตัวหนาเหนือข้อความ (ต้องรัน migration 004 ก่อนถึงจะถูกเก็บ)"""
     if not user_id:
         return None
 
-    result = (
-        supabase
-        .table("notifications")
-        .insert(
-            {
-                "user_id": user_id,
-                "item_id": item_id,
-                "matched_item_id": matched_item_id,
-                "match_id": match_id,
-                "message": message,
-            }
-        )
-        .execute()
-    )
+    row = {
+        "user_id": user_id,
+        "item_id": item_id,
+        "matched_item_id": matched_item_id,
+        "match_id": match_id,
+        "message": message,
+    }
 
+    if title:
+        try:
+            return supabase.table("notifications").insert({**row, "title": title}).execute().data
+        except Exception as e:
+            # ยังไม่ได้รัน migration 004 (ไม่มีคอลัมน์ title) → สร้างแบบไม่มีหัวข้อต่อ ไม่ให้แจ้งเตือนหาย
+            print(f"[create_notification] insert with title failed, retrying without title: {e}")
+
+    result = supabase.table("notifications").insert(row).execute()
     return result.data
 
 
@@ -330,6 +234,7 @@ def _notify_match_owners(lost_item_id, found_item_id, match_id):
                 item_id=lost_item_id,
                 matched_item_id=found_item_id,
                 match_id=match_id,
+                title="พบสิ่งของที่ตรงกับของหายของคุณ",
                 message=f'พบสิ่งของที่ตรงกับประกาศ "{title}" ของคุณแล้ว ลองเข้าไปตรวจสอบดู แล้วกดยืนยันถ้าใช่ของคุณ',
             )
 
@@ -340,6 +245,7 @@ def _notify_match_owners(lost_item_id, found_item_id, match_id):
                 item_id=found_item_id,
                 matched_item_id=lost_item_id,
                 match_id=match_id,
+                title="มีคนกำลังตามหาของที่คุณพบ",
                 message=f'มีคนกำลังตามหาของที่ตรงกับ "{title}" ที่คุณแจ้งพบไว้ ลองเข้าไปตรวจสอบดู แล้วกดยืนยันถ้าใช่',
             )
     except Exception as e:
@@ -362,6 +268,7 @@ def _notify_match_owner_confirmed(lost_item_id, found_item_id):
                 user_id=found_data["user_id"],
                 item_id=found_item_id,
                 matched_item_id=lost_item_id,
+                title="เจ้าของยืนยันว่าเป็นของเขา",
                 message=(
                     f'เจ้าของของหายยืนยันแล้วว่า "{title}" ที่คุณแจ้งพบไว้เป็นของเขาจริง '
                     f'ติดต่อนัดคืนของกันได้เลย แล้วอย่าลืมกดยืนยัน "ได้รับของแล้ว" '
@@ -401,6 +308,7 @@ def _notify_match_completed(lost_item_id, found_item_id, confirming_user_id):
                 user_id=notify_target,
                 item_id=notify_item_id,
                 matched_item_id=notify_matched_id,
+                title="ปิดเคสเรียบร้อยแล้ว",
                 message="อีกฝั่งยืนยันแล้วว่าได้รับของคืนเรียบร้อย ปิดเคสนี้ให้แล้ว",
             )
     except Exception as e:
@@ -597,6 +505,7 @@ def claim_item(item_id: str, claimant_user_id: str):
     claim_row = (claim_result.data or [{}])[0]
     claim_id = claim_row.get("id")
 
+    claim_title = "มีคนแจ้งว่าเจอของของคุณ" if item_type == "lost" else "มีคนแจ้งว่าน่าจะเป็นของเขา"
     if item_type == "lost":
         # โพสต์เป็น "ของหาย" — ผู้กดปุ่มคือคนที่เจอของ กำลังแจ้งเจ้าของ (คนที่ทำของหาย) ว่าเจอแล้ว
         message = (
@@ -614,6 +523,7 @@ def claim_item(item_id: str, claimant_user_id: str):
         user_id=owner_id,
         item_id=item_id,
         matched_item_id=None,
+        title=claim_title,
         message=message,
     )
 
@@ -747,6 +657,7 @@ def delete_own_item(item_id: str, user_id: str):
         try:
             create_notification(
                 user_id=owner_id, item_id=other_item_id, matched_item_id=None,
+                title="ประกาศที่จับคู่กับคุณถูกลบแล้ว",
                 message=f'ประกาศ "{title}" ที่เคยแมทช์กับ "{other_title}" ของคุณถูกเจ้าของลบแล้ว แมทช์จึงถูกยกเลิก ประกาศของคุณยังเปิดอยู่ รอคู่ที่ถูกต้องต่อไป',
             )
         except Exception as e:
@@ -755,6 +666,7 @@ def delete_own_item(item_id: str, user_id: str):
         try:
             create_notification(
                 user_id=c["claimant_user_id"], item_id=None, matched_item_id=None,
+                title="ประกาศที่คุณแจ้งถูกลบแล้ว",
                 message=f'ประกาศ "{title}" ที่คุณแจ้งไว้ ถูกเจ้าของลบแล้ว',
             )
         except Exception as e:
@@ -800,6 +712,7 @@ def _close_claimant_own_post(claimant_user_id: str, claimed_item_type: str):
             user_id=claimant_user_id,
             item_id=own_item["id"],
             matched_item_id=None,
+            title="ปิดประกาศของคุณให้แล้ว",
             message=(
                 f'ปิดเคสให้ประกาศ "{own_item.get("title") or "ของคุณ"}" ของคุณด้วยแล้ว '
                 f'เพราะน่าจะเป็นของชิ้นเดียวกับที่คุณเพิ่งปิดเคสไป '
@@ -853,6 +766,7 @@ def confirm_claim(claim_id: str, confirming_user_id: str = None):
             user_id=notify_target,
             item_id=item_id,
             matched_item_id=None,
+            title="ปิดเคสเรียบร้อยแล้ว",
             message=f'อีกฝั่งยืนยันแล้วว่า "{title or "สิ่งของ"}" ส่งคืนกันเรียบร้อย ปิดเคสนี้ให้แล้ว',
         )
 

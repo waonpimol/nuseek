@@ -11,12 +11,21 @@ const CONFIDENCE_TEXT: Record<Suggestion["confidence"], string> = {
   low: "มั่นใจต่ำ ลองตรวจสอบอีกครั้ง",
 };
 
+// ข้อความความคืบหน้าระหว่างรอ (สลับทุก ~2.5 วินาที เพื่อให้รู้ว่ายังทำงานอยู่ ไม่ได้ค้าง)
+const PROGRESS_STEPS = [
+  "AI กำลังดูรูป...",
+  "กำลังอ่านโลโก้และข้อความบนตัวของ...",
+  "กำลังสรุปชื่อ ยี่ห้อ รุ่น...",
+  "ใกล้เสร็จแล้ว รออีกนิดนะ...",
+];
+
 // ปุ่ม "ให้ AI ช่วยระบุสิ่งของ" ใช้ในหน้าแจ้งของหาย/แจ้งพบของ
 // กดเองเท่านั้น (ไม่ทำอัตโนมัติ) ผลเป็นคำแนะนำ ผู้ใช้กด "ใช้ชื่อนี้" เพื่อเติมช่องชื่อเอง
 export default function AiIdentify({ file, onApply }: { file: File | null; onApply: (title: string) => void }) {
   const [loading, setLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
   const latestFile = useRef<File | null>(file); // รูปล่าสุดตอนนี้ ใช้เช็กว่าผลที่กลับมายังเป็นของรูปเดิมไหม
 
   // เปลี่ยนรูปแรก → ล้างผลเก่า (กันเสนอชื่อของรูปเดิม)
@@ -26,6 +35,16 @@ export default function AiIdentify({ file, onApply }: { file: File | null; onApp
     setError(null);
     setLoading(false);
   }, [file]);
+
+  // ระหว่างโหลด ไล่ข้อความความคืบหน้าไปทีละขั้น (ค้างที่ขั้นสุดท้าย)
+  useEffect(() => {
+    if (!loading) {
+      setStep(0);
+      return;
+    }
+    const timer = setInterval(() => setStep((s) => Math.min(s + 1, PROGRESS_STEPS.length - 1)), 2500);
+    return () => clearInterval(timer);
+  }, [loading]);
 
   const handleIdentify = async () => {
     if (!file || loading) return;
@@ -57,13 +76,17 @@ export default function AiIdentify({ file, onApply }: { file: File | null; onApp
         className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-sm font-medium rounded-full border border-orange-300 text-orange-600 bg-white hover:bg-orange-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
       >
         {loading ? <Spinner size={14} /> : <Sparkles size={14} />}
-        {loading ? "AI กำลังดูรูปและค้นหา..." : "ให้ AI ช่วยระบุสิ่งของ"}
+        {loading ? PROGRESS_STEPS[step] : "ให้ AI ช่วยระบุสิ่งของ"}
       </button>
       {!file && (
         <span className="ml-2 text-[11px] sm:text-xs text-gray-400">แนบรูปก่อน แล้วกดให้ AI ช่วยระบุชื่อ ยี่ห้อ รุ่น</span>
       )}
 
-      {error && <p className="mt-2 text-xs text-rose-500">{error}</p>}
+      {file && !loading && !suggestion && !error && (
+        <p className="mt-1.5 text-[11px] sm:text-xs text-gray-400">AI ช่วยแนะนำเท่านั้น ตรวจสอบกับของจริงก่อนใช้ชื่อทุกครั้ง</p>
+      )}
+
+      {error && <p role="alert" className="mt-2 text-xs text-rose-500">{error}</p>}
 
       {suggestion && (
         <div className="mt-2 flex items-center gap-3 flex-wrap rounded-xl bg-orange-50 border border-orange-100 px-3 py-2.5">

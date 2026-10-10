@@ -1,59 +1,42 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Home,
   Image as ImageIcon,
   FileText,
-  Bell,
   User,
   Upload,
   Camera,
   AlertTriangle,
   Search,
   RefreshCw,
-  MapPin,
   Menu,
+  MapPin,
   Clock,
   X,
   SearchX
 } from "lucide-react";
 import { searchByImage } from "../services/api";
 import EmptyState from "../components/EmptyState";
+import ErrorState from "../components/ErrorState";
+import NotificationBell from "../components/NotificationBell";
 import { getPlaceholderImage } from "../utils/placeholder";
-import { useNotifications } from "../hooks/useNotifications";
 import { formatRelativeTime } from "../utils/format";
 import Spinner from "../components/Spinner";
 import { supabase } from "../services/supabaseClient";
 import LoadingOverlay from "../components/LoadingOverlay";
 
-
-
 const FALLBACK_IMAGE = getPlaceholderImage(300, 225);
+
+
 
 export default function SearchByImage() {
   const navigate = useNavigate();
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
-  const [showNoti, setShowNoti] = useState(false);
-  const bellButtonRef = useRef<HTMLButtonElement>(null);
-  const notifDropdownRef = useRef<HTMLDivElement>(null);
-  const [arrowLeft, setArrowLeft] = useState<number | null>(null);
 
-  // คำนวณตำแหน่งลูกศรให้ชี้ตรงกระดิ่งเสมอ ไม่ว่ากล่องแจ้งเตือนจะอยู่ตำแหน่งไหน
-  // (มือถือ: กล่องอยู่กึ่งกลางจอ / จอใหญ่: กล่องยึดกับกระดิ่ง ตำแหน่งไม่เท่ากัน คำนวณสดเลยแม่นกว่า)
-  useEffect(() => {
-    if (showNoti && bellButtonRef.current && notifDropdownRef.current) {
-      const bellRect = bellButtonRef.current.getBoundingClientRect();
-      const dropdownRect = notifDropdownRef.current.getBoundingClientRect();
-      const bellCenterX = bellRect.left + bellRect.width / 2;
-      let left = bellCenterX - dropdownRect.left - 8;
-      left = Math.max(12, Math.min(left, dropdownRect.width - 28));
-      setArrowLeft(left);
-    }
-  }, [showNoti]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications();
 
   const [results, setResults] = useState<any[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -123,56 +106,7 @@ export default function SearchByImage() {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-            <div className="relative">
-              <button
-                ref={bellButtonRef} onClick={() => setShowNoti(!showNoti)}
-                className={`p-2 rounded-full transition relative ${showNoti ? "text-orange-500 bg-orange-50" : "text-gray-600 hover:text-orange-500 hover:bg-gray-100"
-                  }`}
-              >
-                <Bell />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-2 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
-                )}
-              </button>
-
-              {showNoti && (
-                <div ref={notifDropdownRef} className="fixed sm:absolute top-16 sm:top-12 left-1/2 -translate-x-1/2 w-[80vw] max-w-[300px] sm:translate-x-0 sm:left-auto sm:-right-16 sm:w-[92vw] sm:max-w-[360px] bg-white rounded-2xl border border-gray-200 shadow-xl z-50 font-kanit">
-                  <div className="absolute -top-2 w-4 h-4 bg-white border-t border-l border-gray-200 rotate-45 z-10" style={{ left: arrowLeft !== null ? `${arrowLeft}px` : undefined, right: arrowLeft !== null ? undefined : '73px' }}></div>
-                  <div className="relative z-20 bg-white rounded-2xl overflow-hidden">
-                    <div className="flex justify-between items-center px-3 py-2.5 sm:px-5 sm:py-3.5 border-b border-gray-100">
-                      <span className="font-bold text-gray-800 text-xs sm:text-sm">การแจ้งเตือน</span>
-                      <button onClick={markAllRead} className="text-[10px] sm:text-xs font-semibold text-orange-500 hover:underline">อ่านทั้งหมด</button>
-                    </div>
-                    <div className="max-h-[260px] sm:max-h-[320px] overflow-y-auto divide-y divide-gray-100">
-                      {notifications.length === 0 && (
-                        <div className="p-6 text-center text-xs text-gray-400">ยังไม่มีแจ้งเตือน</div>
-                      )}
-                      {notifications.map((n) => (
-                        <div
-                          key={n.id}
-                          onClick={() => {
-                            markOneRead(n.id);
-                            const targetItemId = n.matched_item_id || n.item_id; if (targetItemId) navigate(`/postdetail/${targetItemId}`);
-                          }}
-                          className={`flex gap-2 p-2.5 sm:gap-3 sm:p-4 hover:bg-gray-50 transition cursor-pointer text-left ${n.is_read ? "" : "bg-orange-50/40"}`}
-                        >
-                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="12" cy="12" r="9" />
-                              <path d="M8 12l3 3 5-6" />
-                            </svg>
-                          </div>
-                          <div className="flex flex-col gap-0.5 flex-1">
-                            <p className="text-[10px] sm:text-[11px] text-gray-600 leading-normal">{n.message}</p>
-                            <span className="text-[9px] sm:text-[10px] text-gray-400">{formatRelativeTime(n.created_at)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <NotificationBell />
 
             <Link to="/profile" className="hover:text-orange-500 text-gray-600">
               <User />
@@ -310,7 +244,9 @@ export default function SearchByImage() {
 
         {/* ================= ผลการค้นหา ================= */}
         {error && (
-          <div className="text-center text-rose-500 py-6 text-sm">{error}</div>
+          <ErrorState title={error} description="ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง" className="bg-white rounded-2xl border border-gray-100">
+            <button onClick={handleStartSearch} className="inline-flex items-center justify-center bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-xs sm:text-sm rounded-xl font-semibold transition">ลองใหม่</button>
+          </ErrorState>
         )}
 
         {results !== null && !error && (
@@ -329,14 +265,14 @@ export default function SearchByImage() {
                 <Link to="/reportlost" className="inline-flex items-center justify-center bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-xs sm:text-sm rounded-xl font-semibold transition">แจ้งของหาย</Link>
               </EmptyState>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+              <div className="-mx-4 sm:mx-0 px-4 sm:px-0 pt-1 pb-8 -mb-4 flex gap-3 sm:gap-5 overflow-x-auto snap-x snap-mandatory [scrollbar-width:thin]">
                 {results.map((item) => (
                   <div
                     key={item.id}
                     onClick={() => navigate(`/postdetail/${item.id}`)}
-                    className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md border border-gray-100 transition-all flex flex-row sm:flex-col cursor-pointer"
+                    className="group w-[68%] sm:w-[320px] flex-shrink-0 snap-start bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 transition-all duration-200 ease-out flex flex-col cursor-pointer hover:-translate-y-1 hover:shadow-[0_14px_36px_-6px_rgba(0,0,0,0.18)] active:translate-y-0 active:scale-[0.97] active:shadow-sm"
                   >
-                    <div className="relative w-24 h-24 sm:w-full sm:aspect-[4/3] flex-shrink-0 overflow-hidden bg-gray-100">
+                    <div className="relative w-full aspect-[4/3] flex-shrink-0 overflow-hidden bg-gray-100">
                       <img
                         src={item.image_url || FALLBACK_IMAGE}
                         alt={item.title}
@@ -345,34 +281,36 @@ export default function SearchByImage() {
                           (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
                         }}
                       />
-                      <div className={`hidden sm:flex absolute top-3 left-3 px-3 py-1.5 rounded-full items-center shadow-sm select-none text-xs font-semibold tracking-wide text-white ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
+                      <div className={`flex absolute top-2.5 left-2.5 sm:top-3 sm:left-3 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full items-center shadow-sm select-none text-[11px] sm:text-xs font-semibold tracking-wide text-white ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
                         {item.type === "lost" ? "หาย" : "พบ"}
                       </div>
-                      <div className="hidden sm:block absolute top-3 right-3 bg-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">
+                      <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 bg-orange-500 text-white text-[11px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full shadow-sm">
                         {Math.round((item.score || 0) * 100)}%
                       </div>
                     </div>
 
-                    <div className="p-3 sm:p-4 flex-1 flex flex-col justify-center sm:justify-start gap-1.5 sm:space-y-2 min-w-0">
-                      <div className={`flex sm:hidden w-fit items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-white ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
-                        {item.type === "lost" ? "หาย" : "พบ"}
-                      </div>
-                      <h4 className="text-sm font-semibold text-gray-800 line-clamp-1 sm:line-clamp-2">
+                    <div className="p-3 sm:p-5 flex-1 flex flex-col gap-2 sm:gap-3 min-w-0">
+                      <div className="w-6 sm:w-8 h-1 rounded-full bg-orange-500" />
+                      <h4 className="text-base sm:text-2xl font-extrabold tracking-tight text-gray-900 leading-tight line-clamp-2 group-hover:text-orange-500 transition">
                         {item.title || "ไม่ระบุชื่อสิ่งของ"}
                       </h4>
-                      <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-gray-500 truncate">
-                        <MapPin size={13} className="text-gray-400 flex-shrink-0" />
-                        <span className="truncate">{item.location || "ไม่ระบุสถานที่"}</span>
-                      </div>
-                      {item.created_at && (
-                        <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-gray-500">
-                          <Clock size={13} className="flex-shrink-0" />
-                          <span>{formatRelativeTime(item.created_at)}</span>
+                      <div className="space-y-1.5 sm:space-y-2 pt-2 sm:pt-2.5 border-t border-gray-100 text-xs text-gray-500">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <MapPin size={13} className="text-gray-400 flex-shrink-0" />
+                          <span className="truncate">{item.location || "ไม่ระบุสถานที่"}</span>
                         </div>
-                      )}
+                        {item.created_at && (
+                          <div className="flex items-center gap-1.5">
+                            <Clock size={13} className="text-gray-400 flex-shrink-0" />
+                            <span>{formatRelativeTime(item.created_at)}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
+                {/* ช่องว่างท้ายแถว (มือถือ) ให้ปัดจนสุดแล้วการ์ดใบสุดท้ายไม่ติดขอบจอ */}
+                <div className="w-1 flex-shrink-0 sm:hidden" aria-hidden="true" />
               </div>
             )}
           </div>

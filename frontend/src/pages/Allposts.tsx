@@ -1,18 +1,17 @@
-import { useState, useEffect, useRef, type SyntheticEvent, type MouseEvent } from "react";
+import { useState, useEffect, useRef, type SyntheticEvent, type MouseEvent as ReactMouseEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
 	Home,
 	Image,
 	FileText,
-	Bell,
 	User,
-	MapPin,
-	Clock,
 	Search,
 	SlidersHorizontal,
 	Menu,
 	X,
 	SearchX,
+	MapPin,
+	Clock,
 	PackageSearch,
 	ChevronLeft,
 	ChevronRight,
@@ -21,18 +20,20 @@ import {
 } from "lucide-react";
 import { getItems } from "../services/api";
 import { formatRelativeTime } from "../utils/format";
-import { getPlaceholderImage } from "../utils/placeholder";
 import { LOCATIONS } from "../utils/locations";
-import { useNotifications } from "../hooks/useNotifications";
-import { getAvatarColor, getAvatarInitial } from "../utils/avatar";
+import NotificationBell from "../components/NotificationBell";
 import PostSkeletonList from "../components/PostSkeleton";
 import EmptyState from "../components/EmptyState";
+import ErrorState from "../components/ErrorState";
+import { getPlaceholderImage } from "../utils/placeholder";
+import { getAvatarColor, getAvatarInitial } from "../utils/avatar";
 
-const FALLBACK_IMAGE = getPlaceholderImage(500, 375);
 const PAGE_SIZE = 9;
 
+const FALLBACK_IMAGE = getPlaceholderImage(500, 375);
+
 // สไลด์รูปในการ์ด: ปัดซ้าย-ขวาบนมือถือ / กดลูกศรบนจอใหญ่ มีตัวนับ (2/3) และจุดบอกตำแหน่ง
-function ImageCarousel({ post }: { post: any }) {
+function ImageCarousel({ post, score }: { post: any; score?: number }) {
 	const imgs: string[] = post.image_urls?.length
 		? post.image_urls
 		: post.image_url
@@ -59,7 +60,7 @@ function ImageCarousel({ post }: { post: any }) {
 		e.currentTarget.src = FALLBACK_IMAGE;
 	};
 
-	const stop = (e: MouseEvent) => e.stopPropagation();
+	const stop = (e: ReactMouseEvent) => e.stopPropagation();
 
 	return (
 		<div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100">
@@ -88,9 +89,15 @@ function ImageCarousel({ post }: { post: any }) {
 				</span>
 			</div>
 
+			{score !== undefined && (
+				<div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 bg-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm select-none pointer-events-none">
+					{Math.round(score * 100)}%
+				</div>
+			)}
+
 			{multi && (
 				<>
-					<span className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 text-[11px] font-semibold text-white bg-black/55 rounded-full px-2 py-0.5 select-none pointer-events-none">
+					<span className={`absolute right-2.5 sm:right-3 text-[11px] font-semibold text-white bg-black/55 rounded-full px-2 py-0.5 select-none pointer-events-none ${score !== undefined ? "top-11 sm:top-12" : "top-2.5 sm:top-3"}`}>
 						{index + 1}/{imgs.length}
 					</span>
 
@@ -128,6 +135,100 @@ function ImageCarousel({ post }: { post: any }) {
 		</div>
 	);
 }
+
+// การ์ดประกาศ ใช้ร่วมกันทั้งหน้า "ประกาศทั้งหมด" และ "ค้นหาด้วยรูป"
+// score: ถ้าส่งมา (ผลค้นหาด้วยรูป) จะแสดงเปอร์เซ็นต์ความคล้ายที่มุมขวาบนของรูป
+function PostCard({
+	post,
+	score,
+	showReporter = true,
+}: {
+	post: any;
+	score?: number;
+	showReporter?: boolean;
+}) {
+	const navigate = useNavigate();
+	return (
+		<div
+			className="relative bg-white rounded-2xl overflow-hidden shadow-[0_4px_16px_-2px_rgba(0,0,0,0.12)] sm:shadow-sm border border-gray-200 sm:border-gray-100 transition-all duration-200 ease-out flex flex-row sm:flex-col group cursor-pointer hover:-translate-y-1 hover:shadow-[0_14px_36px_-6px_rgba(0,0,0,0.18)] active:translate-y-0 active:scale-[0.97] active:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+			role="link"
+			tabIndex={0}
+			onClick={() => navigate(`/postdetail/${post.id}`)}
+			onKeyDown={(e) => {
+				if (e.key === "Enter") navigate(`/postdetail/${post.id}`);
+			}}
+		>
+			{/* มือถือ: รูปเล็กด้านซ้ายเป็นแถว (เหมือนเดิม) */}
+			<div className="sm:hidden relative w-24 self-stretch min-h-24 flex-shrink-0 overflow-hidden bg-gray-100">
+				<img
+					src={post.image_url || FALLBACK_IMAGE}
+					alt={post.title}
+					className="absolute inset-0 w-full h-full object-cover"
+					onError={(e) => {
+						(e.target as HTMLImageElement).src = FALLBACK_IMAGE;
+					}}
+				/>
+			</div>
+
+			{/* จอใหญ่: สไลด์รูปเลื่อนดูได้ */}
+			<div className="hidden sm:block">
+				<ImageCarousel post={post} score={score} />
+			</div>
+
+			{/* ส่วนเนื้อหาในโพสต์ */}
+			<div className="p-3 sm:p-5 flex-1 flex flex-col justify-center sm:justify-between gap-1.5 sm:gap-4 min-w-0">
+				{/* ป้ายประเภทแบบข้อความเล็ก โชว์เฉพาะมือถือ (แทนป้ายทับรูป) */}
+				<div className={`flex sm:hidden absolute top-2.5 right-2.5 items-center px-2 py-px rounded-full text-[11px] font-semibold text-white ${post.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
+					{post.type === "lost" ? "หาย" : "พบ"}
+				</div>
+				{/* ขีดสีส้มเล็กๆ เหนือชื่อ (จอใหญ่) */}
+				<div className="hidden sm:block w-8 h-1 rounded-full bg-orange-500 -mb-1.5" />
+				<h3 className="text-sm font-semibold text-gray-800 line-clamp-1 pr-9 sm:pr-0 sm:text-2xl sm:font-extrabold sm:tracking-tight sm:text-gray-900 sm:leading-tight sm:line-clamp-2 group-hover:text-orange-500 transition">
+					{post.title || "ไม่ระบุชื่อสิ่งของ"}
+				</h3>
+				{/* มือถือ: ขีดสีส้มอยู่ใต้ชื่อ */}
+				<div className="sm:hidden w-6 h-1 rounded-full bg-orange-500 -mt-0.5" />
+
+				<div className="space-y-1 sm:space-y-2 sm:pt-2.5 sm:border-t sm:border-gray-100 text-xs text-gray-500">
+					<div className="flex items-center gap-1.5 truncate">
+						<MapPin size={13} className="text-gray-400 flex-shrink-0" />
+						<span className="truncate">{post.location || "ไม่ระบุสถานที่"}</span>
+					</div>
+					<div className="flex items-center gap-1.5">
+						<Clock size={13} className="text-gray-400 flex-shrink-0" />
+						<span>{post.created_at ? formatRelativeTime(post.created_at) : "-"}</span>
+					</div>
+				</div>
+
+				{/* แถวผู้ประกาศ: โชว์เฉพาะจอใหญ่ (การ์ดทั้งใบกดได้อยู่แล้วบนมือถือ) */}
+				{showReporter && (
+				<div className="hidden sm:flex items-center pt-3 border-t border-gray-100 mt-auto">
+					<div className="flex items-center gap-2.5">
+						{post.reporter_avatar_url ? (
+							<img
+								src={post.reporter_avatar_url}
+								alt={post.reporter_name || "ผู้ประกาศ"}
+								className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+							/>
+						) : (
+							<div
+								className="w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center select-none flex-shrink-0"
+								style={{ backgroundColor: getAvatarColor(post.reporter_name || "ผู้ประกาศ") }}
+							>
+								{getAvatarInitial(post.reporter_name || "ผู้ประกาศ")}
+							</div>
+						)}
+						<span className="text-xs font-medium text-gray-600">
+							{post.reporter_name || "ผู้ประกาศ"}
+						</span>
+					</div>
+				</div>
+				)}
+			</div>
+		</div>
+	);
+}
+
 
 // ตัวเลือกแบบกำหนดเอง (แทน <select> ของเบราว์เซอร์ เพื่อให้รายการขอบมนและดูเรียบๆ) ใช้ทั้งตัวกรองประเภทและสถานที่
 function FilterSelect({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
@@ -192,33 +293,16 @@ function FilterSelect({ value, onChange, options }: { value: string; onChange: (
 }
 
 export default function AllPosts() {
-	const navigate = useNavigate();
 	const [activeTab, setActiveTab] = useState<string>("ทั้งหมด");
 	const [searchQuery, setSearchQuery] = useState<string>("");
 	const [selectedLocation, setSelectedLocation] = useState<string>("all");
-	const [showNoti, setShowNoti] = useState(false);
-	const bellButtonRef = useRef<HTMLButtonElement>(null);
-	const notifDropdownRef = useRef<HTMLDivElement>(null);
-	const [arrowLeft, setArrowLeft] = useState<number | null>(null);
 
-	// คำนวณตำแหน่งลูกศรให้ชี้ตรงกระดิ่งเสมอ ไม่ว่ากล่องแจ้งเตือนจะอยู่ตำแหน่งไหน
-	// (มือถือ: กล่องอยู่กึ่งกลางจอ / จอใหญ่: กล่องยึดกับกระดิ่ง ตำแหน่งไม่เท่ากัน คำนวณสดเลยแม่นกว่า)
-	useEffect(() => {
-		if (showNoti && bellButtonRef.current && notifDropdownRef.current) {
-			const bellRect = bellButtonRef.current.getBoundingClientRect();
-			const dropdownRect = notifDropdownRef.current.getBoundingClientRect();
-			const bellCenterX = bellRect.left + bellRect.width / 2;
-			let left = bellCenterX - dropdownRect.left - 8;
-			left = Math.max(12, Math.min(left, dropdownRect.width - 28));
-			setArrowLeft(left);
-		}
-	}, [showNoti]);
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-	const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications();
 
 	const [posts, setPosts] = useState<any[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [reloadKey, setReloadKey] = useState(0); // เพิ่มค่านี้เพื่อสั่งโหลดประกาศใหม่ (ปุ่ม "ลองใหม่")
 
 	useEffect(() => {
 		let cancelled = false;
@@ -231,7 +315,7 @@ export default function AllPosts() {
 				if (!cancelled) setPosts(data || []);
 			} catch (err) {
 				console.error(err);
-				if (!cancelled) setError("โหลดประกาศไม่สำเร็จ ลองรีเฟรชหน้าใหม่");
+				if (!cancelled) setError("โหลดประกาศไม่สำเร็จ");
 			} finally {
 				if (!cancelled) setLoading(false);
 			}
@@ -239,7 +323,7 @@ export default function AllPosts() {
 
 		loadPosts();
 		return () => { cancelled = true; };
-	}, []);
+	}, [reloadKey]);
 
 	const filteredPosts = posts.filter((post) => {
 		const matchesTab =
@@ -333,56 +417,7 @@ export default function AllPosts() {
 
 					{/* Right */}
 					<div className="flex items-center gap-2 md:gap-4">
-						<div className="relative">
-							<button
-								ref={bellButtonRef} onClick={() => setShowNoti(!showNoti)}
-								className={`p-2 rounded-full transition relative ${showNoti ? "text-orange-500 bg-orange-50" : "text-gray-600 hover:text-orange-500 hover:bg-gray-100"
-									}`}
-							>
-								<Bell />
-								{unreadCount > 0 && (
-									<span className="absolute top-1.5 right-2 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
-								)}
-							</button>
-
-							{showNoti && (
-								<div ref={notifDropdownRef} className="fixed sm:absolute top-16 sm:top-12 left-1/2 -translate-x-1/2 w-[80vw] max-w-[300px] sm:translate-x-0 sm:left-auto sm:-right-16 sm:w-[92vw] sm:max-w-[360px] bg-white rounded-2xl border border-gray-200 shadow-xl z-50 font-kanit">
-									<div className="absolute -top-2 w-4 h-4 bg-white border-t border-l border-gray-200 rotate-45 z-10" style={{ left: arrowLeft !== null ? `${arrowLeft}px` : undefined, right: arrowLeft !== null ? undefined : '73px' }}></div>
-									<div className="relative z-20 bg-white rounded-2xl overflow-hidden">
-										<div className="flex justify-between items-center px-3 py-2.5 sm:px-5 sm:py-3.5 border-b border-gray-100">
-											<span className="font-bold text-gray-800 text-xs sm:text-sm">การแจ้งเตือน</span>
-											<button onClick={markAllRead} className="text-[10px] sm:text-xs font-semibold text-orange-500 hover:underline">อ่านทั้งหมด</button>
-										</div>
-										<div className="max-h-[260px] sm:max-h-[320px] overflow-y-auto divide-y divide-gray-100">
-											{notifications.length === 0 && (
-												<div className="p-6 text-center text-xs text-gray-400">ยังไม่มีแจ้งเตือน</div>
-											)}
-											{notifications.map((n) => (
-												<div
-													key={n.id}
-													onClick={() => {
-														markOneRead(n.id);
-														const targetItemId = n.matched_item_id || n.item_id; if (targetItemId) navigate(`/postdetail/${targetItemId}`);
-													}}
-													className={`flex gap-2 p-2.5 sm:gap-3 sm:p-4 hover:bg-gray-50 transition cursor-pointer text-left ${n.is_read ? "" : "bg-orange-50/40"}`}
-												>
-													<div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
-														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-															<circle cx="12" cy="12" r="9" />
-															<path d="M8 12l3 3 5-6" />
-														</svg>
-													</div>
-													<div className="flex flex-col gap-0.5 flex-1">
-														<p className="text-[10px] sm:text-[11px] text-gray-600 leading-normal">{n.message}</p>
-														<span className="text-[9px] sm:text-[10px] text-gray-400">{formatRelativeTime(n.created_at)}</span>
-													</div>
-												</div>
-											))}
-										</div>
-									</div>
-								</div>
-							)}
-						</div>
+						<NotificationBell />
 
 						<Link to="/profile" className="hover:text-orange-500 text-gray-600">
 							<User />
@@ -487,7 +522,9 @@ export default function AllPosts() {
 				)}
 
 				{!loading && error && (
-					<div className="text-center text-rose-500 py-16">{error}</div>
+					<ErrorState title={error} description="ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง">
+						<button onClick={() => setReloadKey((k) => k + 1)} className="inline-flex items-center justify-center bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-xs sm:text-sm rounded-xl font-semibold transition">ลองใหม่</button>
+					</ErrorState>
 				)}
 
 				{!loading && !error && filteredPosts.length === 0 && (
@@ -517,83 +554,9 @@ export default function AllPosts() {
 					<div className="text-xs sm:text-sm text-gray-500 font-medium text-right">
 						<span className="text-orange-500 font-bold text-sm sm:text-base">{filteredPosts.length}</span> ประกาศ
 					</div>
-					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-6">
 						{pagedPosts.map((post) => (
-							<div
-								key={post.id}
-								className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 transition-all duration-200 ease-out flex flex-row sm:flex-col group cursor-pointer hover:-translate-y-1 hover:shadow-[0_14px_36px_-6px_rgba(0,0,0,0.18)] active:translate-y-0 active:scale-[0.97] active:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-								role="link"
-								tabIndex={0}
-								onClick={() => navigate(`/postdetail/${post.id}`)}
-								onKeyDown={(e) => {
-									if (e.key === "Enter") navigate(`/postdetail/${post.id}`);
-								}}
-							>
-								{/* มือถือ: รูปเล็กด้านซ้ายเป็นแถว (เหมือนเดิม) */}
-								<div className="sm:hidden relative w-24 h-24 flex-shrink-0 overflow-hidden bg-gray-100">
-									<img
-										src={post.image_url || FALLBACK_IMAGE}
-										alt={post.title}
-										className="w-full h-full object-cover"
-										onError={(e) => {
-											(e.target as HTMLImageElement).src = FALLBACK_IMAGE;
-										}}
-									/>
-								</div>
-
-								{/* จอใหญ่: สไลด์รูปเลื่อนดูได้ */}
-								<div className="hidden sm:block">
-									<ImageCarousel post={post} />
-								</div>
-
-								{/* ส่วนเนื้อหาในโพสต์ */}
-								<div className="p-3 sm:p-5 flex-1 flex flex-col justify-center sm:justify-between gap-1.5 sm:gap-4 min-w-0">
-									{/* ป้ายประเภทแบบข้อความเล็ก โชว์เฉพาะมือถือ (แทนป้ายทับรูป) */}
-									<div className={`flex sm:hidden w-fit items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-white ${post.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
-										{post.type === "lost" ? "หาย" : "พบ"}
-									</div>
-									{/* ขีดสีส้มเล็กๆ เหนือชื่อ (จอใหญ่) */}
-									<div className="hidden sm:block w-8 h-1 rounded-full bg-orange-500 -mb-1.5" />
-									<h3 className="text-sm font-semibold text-gray-800 line-clamp-1 sm:text-2xl sm:font-extrabold sm:tracking-tight sm:text-gray-900 sm:leading-tight sm:line-clamp-2 group-hover:text-orange-500 transition">
-										{post.title || "ไม่ระบุชื่อสิ่งของ"}
-									</h3>
-
-									<div className="space-y-1 sm:space-y-2 sm:pt-2.5 sm:border-t sm:border-gray-100 text-[11px] sm:text-xs text-gray-500">
-										<div className="flex items-center gap-1.5 truncate">
-											<MapPin size={13} className="text-gray-400 flex-shrink-0" />
-											<span className="truncate">{post.location || "ไม่ระบุสถานที่"}</span>
-										</div>
-										<div className="flex items-center gap-1.5">
-											<Clock size={13} className="text-gray-400 flex-shrink-0" />
-											<span>{post.created_at ? formatRelativeTime(post.created_at) : "-"}</span>
-										</div>
-									</div>
-
-									{/* แถวผู้ประกาศ + ปุ่มดูรายละเอียด: โชว์เฉพาะจอใหญ่ (การ์ดทั้งใบกดได้อยู่แล้วบนมือถือ) */}
-									<div className="hidden sm:flex items-center pt-3 border-t border-gray-100 mt-auto">
-										<div className="flex items-center gap-2.5">
-											{post.reporter_avatar_url ? (
-												<img
-													src={post.reporter_avatar_url}
-													alt={post.reporter_name || "ผู้ประกาศ"}
-													className="w-7 h-7 rounded-full object-cover flex-shrink-0"
-												/>
-											) : (
-												<div
-													className="w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center select-none flex-shrink-0"
-													style={{ backgroundColor: getAvatarColor(post.reporter_name || "ผู้ประกาศ") }}
-												>
-													{getAvatarInitial(post.reporter_name || "ผู้ประกาศ")}
-												</div>
-											)}
-											<span className="text-xs font-medium text-gray-600">
-												{post.reporter_name || "ผู้ประกาศ"}
-											</span>
-										</div>
-
-									</div>
-								</div>
-							</div>
+							<PostCard key={post.id} post={post} />
 						))}
 					</div>
 
