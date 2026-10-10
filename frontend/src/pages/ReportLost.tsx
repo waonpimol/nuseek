@@ -189,6 +189,25 @@ export default function ReportLost() {
 						<h1 style={styles.mainTitle}>ประกาศแจ้งของหาย</h1>
 						<p style={styles.mainSubtitle}>กรอกรายละเอียดเพื่อประกาศตามหาสิ่งของที่สูญหาย</p>
 
+						{/* พรีวิวรูปที่แนบ (ถ้ามี) — แสดงเหนือช่องชื่อสิ่งของ */}
+						{images.length > 0 && (
+							<div style={styles.imagePreviewRow}>
+								{images.map((img, i) => (
+									<div key={img.preview} style={styles.imagePreviewBlock}>
+										<img src={img.preview} alt={`รูปที่ ${i + 1}`} style={styles.imagePreview} />
+										{i === 0 && <span style={styles.coverBadge}>รูปปก</span>}
+										<button
+											type="button"
+											onClick={() => removeImage(i)}
+											style={styles.removeImageBtn}
+										>
+											ลบรูป
+										</button>
+									</div>
+								))}
+							</div>
+						)}
+
 						{/* ช่องชื่อสิ่งของ (เฉพาะฝั่งของหาย เพราะเจ้าของรู้ชื่อของตัวเองชัดเจน) */}
 						<div style={styles.inputBlock}>
 							<input
@@ -233,24 +252,6 @@ export default function ReportLost() {
 							</datalist>
 						</div>
 
-						{/* พรีวิวรูปที่แนบ (ถ้ามี) */}
-						{images.length > 0 && (
-							<div style={styles.imagePreviewRow}>
-								{images.map((img, i) => (
-									<div key={img.preview} style={styles.imagePreviewBlock}>
-										<img src={img.preview} alt={`รูปที่ ${i + 1}`} style={styles.imagePreview} />
-										{i === 0 && <span style={styles.coverBadge}>รูปปก</span>}
-										<button
-											type="button"
-											onClick={() => removeImage(i)}
-											style={styles.removeImageBtn}
-										>
-											ลบรูป
-										</button>
-									</div>
-								))}
-							</div>
-						)}
 
 						<input
 							type="file"
@@ -375,11 +376,11 @@ const styles: Record<string, React.CSSProperties> = {
 	inputBlock: { width: '100%', border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', marginBottom: '10px' },
 	textareaWhite: { width: '100%', padding: 'clamp(10px, 3.5vw, 16px)', backgroundColor: '#FFFFFF', border: 'none', fontSize: 'clamp(12px, 3vw, 14px)', outline: 'none', resize: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: '#4A5568', lineHeight: '1.6' },
 
-	imagePreviewBlock: { position: 'relative', width: 'clamp(100px, 30vw, 140px)', height: 'clamp(100px, 30vw, 140px)', borderRadius: '12px', overflow: 'hidden', border: '1px solid #E2E8F0' },
+	imagePreviewBlock: { position: 'relative', width: '100%', aspectRatio: '1 / 1', borderRadius: '10px', overflow: 'hidden', border: '1px solid #E2E8F0' },
 	imagePreview: { width: '100%', height: '100%', objectFit: 'cover' },
-	imagePreviewRow: { display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' },
-	coverBadge: { position: 'absolute', bottom: '4px', left: '4px', backgroundColor: 'rgba(0, 0, 0, 0.6)', color: '#FFFFFF', borderRadius: '6px', padding: '2px 6px', fontSize: '11px' },
-	removeImageBtn: { position: 'absolute', top: '4px', right: '4px', backgroundColor: 'rgba(229, 62, 62, 0.85)', color: '#FFFFFF', border: 'none', borderRadius: '6px', padding: '2px 6px', fontSize: '11px', cursor: 'pointer' },
+	imagePreviewRow: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', maxWidth: '360px', marginBottom: '14px' },
+	coverBadge: { position: 'absolute', bottom: '4px', left: '4px', backgroundColor: 'rgba(0, 0, 0, 0.6)', color: '#FFFFFF', borderRadius: '5px', padding: '1px 5px', fontSize: '10px' },
+	removeImageBtn: { position: 'absolute', top: '4px', right: '4px', backgroundColor: 'rgba(229, 62, 62, 0.85)', color: '#FFFFFF', border: 'none', borderRadius: '5px', padding: '1px 5px', fontSize: '10px', cursor: 'pointer' },
 
 	divider: { height: '1px', backgroundColor: '#EDF2F7', margin: '18px 0' },
 

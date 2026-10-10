@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Form
-from services.item_service import get_all_items, get_item_by_id, get_items_by_user
+from services.item_service import get_all_items, get_item_by_id, get_items_by_user, get_similar_items
 from nuseek.tools.supabase_tool import update_own_item, delete_own_item
 from nuseek.tools.embedding_tool import embed_text
 
@@ -22,6 +22,15 @@ def my_items(user_id: str):
 def item(item_id: str):
     result = get_item_by_id(item_id)
     if not result:
+        raise HTTPException(status_code=404, detail="ไม่พบไอเทมนี้")
+    return result
+
+
+@router.get("/items/{item_id}/similar")
+def similar_items(item_id: str):
+    """โพสต์ที่คล้ายกัน (แสดงท้ายหน้า PostDetail)"""
+    result = get_similar_items(item_id)
+    if result is None:
         raise HTTPException(status_code=404, detail="ไม่พบไอเทมนี้")
     return result
 

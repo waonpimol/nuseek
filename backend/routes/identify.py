@@ -24,9 +24,9 @@ async def identify(image: UploadFile = File(...)):
     result = await identify_item(data, image.content_type or "image/jpeg")
     err = result.get("error") or ""
     if "exhausted" in err.lower() or "429" in err:
-        # โควตา Gemini ของ API key เต็ม (ไม่ใช่โค้ดพัง) — แจ้งให้ชัดว่ารอแล้วลองใหม่ได้
+        # โควตา Gemini/Google Search ของ API key เต็ม (ไม่ใช่โค้ดพัง) — แจ้งให้ชัดว่ารอแล้วลองใหม่ได้
         raise HTTPException(status_code=429, detail="โควตา AI เต็มชั่วคราว ลองใหม่ภายหลัง หรือพิมพ์ชื่อเอง")
     if err:
-        # เรียกโมเดลล้มเหลวจริง ไม่ใช่ "ระบุไม่ได้" — รายละเอียดอยู่ใน log ของ backend
+        # ทั้ง agent+search และทางสำรองล้มเหลวจริง ไม่ใช่ "ระบุไม่ได้" — รายละเอียดอยู่ใน log ของ backend
         raise HTTPException(status_code=503, detail="ผู้ช่วย AI ใช้งานไม่ได้ชั่วคราว ลองใหม่อีกครั้ง หรือพิมพ์ชื่อเอง")
     return result

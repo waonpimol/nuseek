@@ -32,6 +32,7 @@ import ResultModal from '../components/ResultModal';
 import PageLoader from '../components/PageLoader';
 import ErrorState from '../components/ErrorState';
 import EditPostModal from '../components/EditPostModal';
+import SimilarPosts from '../components/SimilarPosts';
 
 const FALLBACK_IMAGE = getPlaceholderImage(600, 400);
 
@@ -566,7 +567,7 @@ export default function PostDetail() {
                           role="menuitem"
                           disabled={deleting}
                           onClick={() => { setOwnerMenuOpen(false); setShowDeleteConfirm(true); }}
-                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition disabled:opacity-50"
+                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-600 hover:bg-red-50 transition disabled:opacity-50"
                         >
                           <Trash2 size={15} /> ลบประกาศ
                         </button>
@@ -803,6 +804,9 @@ export default function PostDetail() {
 
             </div>
           )}
+
+          {/* โพสต์ที่คล้ายกัน (ซ่อนเองถ้าไม่มีผล) */}
+          {!loading && !error && post && <SimilarPosts itemId={post.id} />}
 
         </div>
       </div>

@@ -14,10 +14,17 @@ const CONFIDENCE_TEXT: Record<Suggestion["confidence"], string> = {
 // ข้อความความคืบหน้าระหว่างรอ (สลับทุก ~2.5 วินาที เพื่อให้รู้ว่ายังทำงานอยู่ ไม่ได้ค้าง)
 const PROGRESS_STEPS = [
   "AI กำลังดูรูป...",
-  "กำลังอ่านโลโก้และข้อความบนตัวของ...",
+  "กำลังค้นหาข้อมูลจาก Google...",
   "กำลังสรุปชื่อ ยี่ห้อ รุ่น...",
   "ใกล้เสร็จแล้ว รออีกนิดนะ...",
 ];
+
+// บอกที่มาของคำแนะนำให้ตรงความจริง: ค้น Google จริง / ทางหลักแต่โมเดลตอบเอง / ทางสำรอง (ค้นไม่ได้)
+function sourceText(s: Suggestion): string {
+  if (s.searched === false) return "AI แนะนำจากรูปอย่างเดียว (ค้น Google ไม่ได้ตอนนี้)";
+  if (s.used_search) return "AI แนะนำจากรูปและการค้น Google";
+  return "AI แนะนำจากรูป";
+}
 
 // ปุ่ม "ให้ AI ช่วยระบุสิ่งของ" ใช้ในหน้าแจ้งของหาย/แจ้งพบของ
 // กดเองเท่านั้น (ไม่ทำอัตโนมัติ) ผลเป็นคำแนะนำ ผู้ใช้กด "ใช้ชื่อนี้" เพื่อเติมช่องชื่อเอง
@@ -93,7 +100,7 @@ export default function AiIdentify({ file, onApply }: { file: File | null; onApp
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-gray-800 break-words">{suggestion.title}</p>
             <p className="text-[11px] sm:text-xs text-gray-500">
-              AI แนะนำจากรูป · {CONFIDENCE_TEXT[suggestion.confidence]} · ตรวจสอบก่อนใช้ทุกครั้ง
+              {sourceText(suggestion)} · {CONFIDENCE_TEXT[suggestion.confidence]} · ตรวจสอบก่อนใช้ทุกครั้ง
             </p>
           </div>
           <div className="flex items-center gap-1.5">

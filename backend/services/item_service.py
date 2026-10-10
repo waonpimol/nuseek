@@ -1,4 +1,6 @@
-from nuseek.tools.supabase_tool import supabase, attach_image_url
+import json
+
+from nuseek.tools.supabase_tool import supabase, attach_image_url, search_by_embedding
 
 # ระบุ column ที่ต้องใช้จริงๆ ในการแสดงผล (ไม่เอา "embedding" ติดมาด้วย
 # เพราะเป็นเวกเตอร์ตัวเลขขนาดใหญ่ที่ frontend ไม่ได้ใช้เลย แต่ทำให้ query ช้าลงมากถ้าดึงมาทุกครั้ง)
@@ -203,3 +205,31 @@ def get_item_by_id(item_id: str):
     row = _attach_pending_match(_attach_reporter_name(attach_image_url(result.data)))
     row = _attach_matched_with(row)
     return _attach_pending_claim(row)
+
+
+def get_similar_items(item_id: str, top_k: int = 6, threshold: float = 0.5):
+    """โพสต์ที่คล้ายกับโพสต์นี้ (ใช้ embedding ที่เก็บไว้แล้ว ไม่ต้องคำนวณใหม่)
+    ค้นข้ามทั้งของหายและของที่พบ เฉพาะโพสต์ที่ยัง active และไม่รวมโพสต์ตัวเอง
+    คืน None ถ้าไม่พบโพสต์นี้ / คืน [] ถ้ายังไม่มี embedding หรือไม่มีโพสต์ที่คล้ายพอ"""
+    result = (
+        supabase
+        .table("items")
+        .select("id, embedding")
+        .eq("id", item_id)
+        .maybe_single()
+        .execute()
+    )
+    if not result or not result.data:
+        return None
+
+    embedding = result.data.get("embedding")
+    # pgvector ถูกส่งกลับมาเป็นสตริง "[0.1,0.2,...]" ต้องแปลงเป็น list ก่อนส่งเข้า rpc
+    if isinstance(embedding, str):
+        try:
+            embedding = json.loads(embedding)
+        except ValueError:
+            embedding = None
+    if not embedding:
+        return []
+
+    return search_by_embedding(embedding, top_k=top_k, threshold=threshold, exclude_item_ids=[item_id])

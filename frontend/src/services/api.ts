@@ -20,6 +20,16 @@ export async function getItem(id: string) {
   return await response.json();
 }
 
+export async function getSimilarItems(id: string) {
+  const response = await fetch(`${API}/items/${id}/similar`);
+
+  if (!response.ok) {
+    throw new Error("โหลดโพสต์ที่คล้ายกันไม่สำเร็จ");
+  }
+
+  return await response.json();
+}
+
 export async function getMyItems(userId: string) {
   const response = await fetch(`${API}/items/mine?user_id=${encodeURIComponent(userId)}`);
 
@@ -242,7 +252,7 @@ export async function deleteOwnItem(itemId: string, userId: string) {
 // คืน title ว่างถ้าระบุไม่ได้ (ผลเป็นแค่คำแนะนำ ผู้ใช้เลือกเติมช่องชื่อเอง)
 export async function identifyItem(
   file: File
-): Promise<{ title: string; name: string; brand: string; model: string; confidence: "high" | "medium" | "low" }> {
+): Promise<{ title: string; name: string; brand: string; model: string; confidence: "high" | "medium" | "low"; searched?: boolean; used_search?: boolean }> {
   const formData = new FormData();
   formData.append("image", file);
 
