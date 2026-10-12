@@ -1,4 +1,6 @@
-function PostSkeletonCard() {
+// Skeleton ของการ์ดโพสต์ — รูปทรงเดียวกับการ์ดจริงในหน้า Allposts / Profile
+// มือถือ: แถวนอน (รูปเล็กซ้าย + ข้อความขวา) / จอใหญ่: การ์ดแนวตั้ง (รูปบน + ข้อความล่าง)
+function PostSkeletonCard({ showReporter = true }: { showReporter?: boolean }) {
   return (
     <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 flex flex-row sm:flex-col animate-pulse">
       {/* รูป */}
@@ -17,6 +19,7 @@ function PostSkeletonCard() {
         </div>
 
         {/* แถวผู้ประกาศ + ปุ่ม (โชว์เฉพาะจอใหญ่ เหมือนการ์ดจริง) */}
+        {showReporter && (
         <div className="hidden sm:flex items-center justify-between pt-3 border-t border-gray-100">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-full bg-gray-200" />
@@ -24,6 +27,7 @@ function PostSkeletonCard() {
           </div>
           <div className="h-7 w-28 rounded-lg bg-gray-200" />
         </div>
+        )}
       </div>
     </div>
   );
@@ -33,20 +37,26 @@ interface PostSkeletonListProps {
   count?: number;
   // ใช้ปรับ gap / margin ให้ตรงกับ grid จริงของแต่ละหน้า
   className?: string;
+  // กำหนดจำนวนคอลัมน์ (ค่าเริ่มต้น: 1 / 2 / 3) ต้องเป็นสตริง class ครบ ไม่ประกอบสตริงเอง
+  gridClassName?: string;
+  // false = ไม่แสดงแถวผู้ประกาศใน skeleton (ให้ตรงกับการ์ดที่ซ่อนผู้ประกาศ)
+  showReporter?: boolean;
 }
 
 export default function PostSkeletonList({
   count = 6,
   className = "gap-3 sm:gap-6",
+  gridClassName = "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+  showReporter = true,
 }: PostSkeletonListProps) {
   return (
     <div
       role="status"
       aria-label="กำลังโหลดประกาศ"
-      className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${className}`}
+      className={`grid ${gridClassName} ${className}`}
     >
       {Array.from({ length: count }).map((_, i) => (
-        <PostSkeletonCard key={i} />
+        <PostSkeletonCard key={i} showReporter={showReporter} />
       ))}
     </div>
   );

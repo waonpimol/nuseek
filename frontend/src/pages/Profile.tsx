@@ -1,16 +1,15 @@
 import { Link, useNavigate } from "react-router-dom";
+import Logo from "../components/Logo";
 import { useState, useEffect } from "react";
 import {
+  Bell,
   User,
   Pencil,
-  Bell,
   LogOut,
   PackageSearch,
   Home,
   Image,
   FileText,
-  MapPin,
-  Clock,
   Menu,
   X,
   ChevronDown,
@@ -18,11 +17,10 @@ import {
 } from "lucide-react";
 import { supabase } from "../services/supabaseClient";
 import { getMyItems } from "../services/api";
-import { formatRelativeTime } from "../utils/format";
-import { getPlaceholderImage } from "../utils/placeholder";
 import NotificationBell from "../components/NotificationBell";
 import { getAvatarColor, getAvatarInitial } from "../utils/avatar";
 import PostSkeletonList from "../components/PostSkeleton";
+import PostCard from "../components/PostGridCard";
 import EmptyState from "../components/EmptyState";
 import ResultModal from "../components/ResultModal";
 
@@ -32,9 +30,8 @@ interface UserProfile {
   avatar_url?: string | null;
 }
 
-const FALLBACK_IMAGE = getPlaceholderImage(200, 150);
 const MOBILE_PREVIEW = 3;
-const DESKTOP_PREVIEW = 6;
+const DESKTOP_PREVIEW = 8;
 
 // Avatar แบบ hybrid: มีรูป -> โชว์รูป, ไม่มีรูป -> ตัวอักษรแรก + สีจาก getAvatarColor (สูตรกลาง)
 // ถ้าส่ง className มา จะใช้ className กำหนดขนาด (รองรับ responsive เช่น "w-20 h-20 sm:w-28 sm:h-28")
@@ -174,11 +171,7 @@ export default function Profile() {
         <div className="max-w-7xl mx-auto h-16 md:h-20 flex items-center justify-between px-4 md:px-8">
 
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl md:text-3xl font-bold">
-              <span className="text-orange-500">N</span>
-              <span className="text-gray-500">U</span>
-              <span className="text-black">Seek</span>
-            </h1>
+            <Logo />
           </div>
 
           {/* Menu (desktop) */}
@@ -237,7 +230,7 @@ export default function Profile() {
 
       {/* ================= Header ================= */}
 
-      <div className="max-w-6xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="max-w-7xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
 
         {/* ================= Profile Card ================= */}
 
@@ -366,7 +359,7 @@ export default function Profile() {
           {/* ================= รายการประกาศของฉัน ================= */}
 
           {itemsLoading && (
-            <PostSkeletonList count={4} className="gap-3 sm:gap-5 mt-5 sm:mt-6" />
+            <PostSkeletonList count={4} showReporter={false} gridClassName="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" className="gap-3 sm:gap-5 mt-5 sm:mt-6" />
           )}
 
           {!itemsLoading && filteredItems.length === 0 && (
@@ -391,76 +384,26 @@ export default function Profile() {
           )}
 
           {!itemsLoading && filteredItems.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5 mt-5 sm:mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5 mt-5 sm:mt-6">
               {filteredItems.map((item, index) => {
-                // ย่อรายการตอนยังไม่กด "ดูเพิ่มเติม": มือถือโชว์ 3 โพสต์ / จอใหญ่โชว์ 6 โพสต์ (2 แถว)
+                // ย่อรายการตอนยังไม่กด "ดูเพิ่มเติม": มือถือโชว์ 3 โพสต์ / จอใหญ่โชว์ 8 โพสต์ (2 แถว x 4)
                 const visibility = showAllItems
-                  ? "flex"
+                  ? "grid"
                   : index >= DESKTOP_PREVIEW
                     ? "hidden"
                     : index >= MOBILE_PREVIEW
-                      ? "hidden sm:flex"
-                      : "flex";
+                      ? "hidden sm:grid"
+                      : "grid";
                 return (
-                <div
-                  key={item.id}
-                  onClick={() => navigate(`/postdetail/${item.id}`)}
-                  className={`relative bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-[0_4px_16px_-2px_rgba(0,0,0,0.12)] hover:shadow-[0_10px_28px_-4px_rgba(0,0,0,0.2)] transition-shadow duration-200 cursor-pointer flex-row sm:flex-col ${visibility}`}
-                >
-                  <div className="relative w-24 self-stretch min-h-24 sm:self-auto sm:min-h-0 sm:w-full sm:aspect-[4/3] flex-shrink-0 overflow-hidden bg-gray-100">
-                    <img
-                      src={item.image_url || FALLBACK_IMAGE}
-                      alt={item.title}
-                      className="absolute inset-0 w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
-                      }}
-                    />
-                    {item.status !== "matched" && (
-                      <div className={`hidden sm:flex absolute top-2 left-2 px-2.5 py-1 rounded-full items-center shadow-sm text-xs font-semibold text-white ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
-                        {item.type === "lost" ? "หาย" : "พบ"}
-                      </div>
-                    )}
-                    {item.status === "matched" && (
-                      <div className="hidden sm:flex absolute top-2 left-2 bg-green-500 text-white px-2.5 py-1 rounded-full items-center text-xs font-semibold shadow-sm">
-                        สำเร็จ
-                      </div>
-                    )}
+                  <div key={item.id} className={visibility}>
+                    <PostCard post={item} matched={item.status === "matched"} />
                   </div>
-                  <div className="p-3 sm:p-4 flex flex-col justify-center sm:justify-start gap-1 sm:space-y-2 min-w-0">
-                    {item.status === "matched" ? (
-                      <div className="sm:hidden absolute top-2.5 right-2.5 inline-flex items-center bg-green-500 text-white px-2 py-px rounded-full text-[11px] font-semibold">
-                        สำเร็จ
-                      </div>
-                    ) : (
-                      <div className={`sm:hidden absolute top-2.5 right-2.5 inline-flex items-center px-2 py-px rounded-full text-[11px] font-semibold text-white ${item.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
-                        {item.type === "lost" ? "หาย" : "พบ"}
-                      </div>
-                    )}
-                    <div className="hidden sm:block w-8 h-1 rounded-full bg-orange-500" />
-                    <h4 className={`text-sm sm:text-base font-semibold text-gray-800 line-clamp-1 sm:pr-0 ${item.status === "matched" ? "pr-12" : "pr-9"}`}>{item.title || "ไม่ระบุชื่อสิ่งของ"}</h4>
-                    <div className="sm:hidden w-6 h-1 rounded-full bg-orange-500" />
-                    <div className="flex items-center gap-1.5 text-xs text-gray-500 truncate">
-                      <MapPin size={13} className="flex-shrink-0" />
-                      <span className="truncate">{item.location || "ไม่ระบุสถานที่"}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <Clock size={13} className="flex-shrink-0" />
-                      {/* เคสที่จบแล้วโชว์เวลาที่จบเคส (resolved_at) / ถ้าเป็นโพสต์เก่าที่ยังไม่มีค่านี้ หรือยังไม่จบ โชว์เวลาที่ประกาศเหมือนเดิม */}
-                      <span>
-                        {item.status === "matched" && item.resolved_at
-                          ? `จบเคส ${formatRelativeTime(item.resolved_at)}`
-                          : item.created_at ? formatRelativeTime(item.created_at) : "-"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
                 );
               })}
             </div>
           )}
 
-          {/* ปุ่มดูเพิ่มเติม/ซ่อน: โชว์เมื่อมีโพสต์เกินจำนวนที่แสดง (มือถือ > 3 / จอใหญ่ > 6) */}
+          {/* ปุ่มดูเพิ่มเติม/ซ่อน: โชว์เมื่อมีโพสต์เกินจำนวนที่แสดง (มือถือ > 3 / จอใหญ่ > 8) */}
           {!itemsLoading && filteredItems.length > MOBILE_PREVIEW && (
             <div className={`flex justify-center mt-4 sm:mt-6 ${filteredItems.length <= DESKTOP_PREVIEW ? "sm:hidden" : ""}`}>
               <button

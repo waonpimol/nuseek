@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Logo from "../components/Logo";
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   Home,
@@ -368,17 +369,16 @@ export default function PostDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-cream font-kanit">
+    <div
+      className="min-h-screen bg-cream font-kanit"
+      style={{ backgroundImage: "linear-gradient(180deg, rgba(251,146,60,0.12) 0%, rgba(251,146,60,0) 340px)", backgroundRepeat: "no-repeat" }}
+    >
 
       {/* ================= Navbar ================= */}
       <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto h-16 md:h-20 flex items-center justify-between px-4 md:px-8">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl md:text-3xl font-bold cursor-pointer" onClick={() => navigate('/')}>
-              <span className="text-orange-500">N</span>
-              <span className="text-gray-500">U</span>
-              <span className="text-black">Seek</span>
-            </h1>
+            <Logo />
           </div>
 
           <div className="hidden md:flex items-center gap-8 text-gray-700">
@@ -448,32 +448,27 @@ export default function PostDetail() {
           )}
 
           {!loading && !error && post && (
-            <div style={styles.detailCard}>
+            <div style={styles.detailCard} className="flex flex-col lg:grid lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)]">
               {(() => {
-                const statusColor = post.status === "matched" ? "#00c950" : post.type === "lost" ? "#FF2D38" : "#00A3EF";
-                const statusLabel = post.status === "matched" ? "สำเร็จ" : post.type === "lost" ? "หาย" : "พบ";
                 return (
                   <>
-                    {/* รูปภาพเต็มขอบการ์ด: หลายรูปเลื่อนดูได้ (ปัดบนมือถือ / กดลูกศรบนจอใหญ่)
-                        พื้นหลังเป็นรูปเดียวกันเบลอ แทนแถบเทาข้างรูป */}
-                    <div className="relative w-full bg-gray-100">
-                      <div style={{ height: 4, backgroundColor: statusColor }} className="absolute top-0 inset-x-0 z-10" />
+                    {/* รูปภาพเต็มขอบการ์ด: หลายรูปเลื่อนดูได้ (ปัดบนมือถือ / กดลูกศรบนจอใหญ่) จอใหญ่โชว์รูปเต็มตามสัดส่วนจริง */}
+                    <div className="relative w-full bg-white lg:h-full">
                       <div
                         ref={galleryRef}
                         onScroll={() => {
                           const el = galleryRef.current;
                           if (el && el.clientWidth) setActiveImage(Math.round(el.scrollLeft / el.clientWidth));
                         }}
-                        className="flex w-full overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        className="flex w-full lg:h-full overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                       >
                         {(galleryImages.length ? galleryImages : [FALLBACK_IMAGE]).map((url, i) => (
-                          <div key={url + i} className="relative w-full flex-shrink-0 snap-center flex items-center justify-center h-[280px] sm:h-[400px] overflow-hidden bg-gray-100">
-                            <img src={url} alt="" aria-hidden="true" draggable={false} className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-60" />
+                          <div key={url + i} className="relative w-full flex-shrink-0 snap-center flex items-center justify-center h-[300px] sm:h-[420px] lg:h-auto p-3 pb-6 lg:p-6 overflow-hidden bg-white">
                             <img
                               src={url}
                               alt={`รูปที่ ${i + 1}`}
                               draggable={false}
-                              className="relative max-w-full max-h-full object-contain"
+                              className="relative max-w-full max-h-full object-contain rounded-xl border border-gray-200 bg-white shadow-sm lg:w-auto lg:h-auto lg:max-h-[68vh] lg:rounded-2xl lg:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.15)]"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
                               }}
@@ -482,17 +477,10 @@ export default function PostDetail() {
                         ))}
                       </div>
 
-                      {/* ป้ายสถานะทับมุมรูป */}
-                      <span
-                        style={{ backgroundColor: statusColor }}
-                        className="absolute top-4 left-3 sm:left-4 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold text-white shadow-sm select-none pointer-events-none"
-                      >
-                        {statusLabel}
-                      </span>
 
                       {galleryImages.length > 1 && (
                         <>
-                          <span className="absolute top-4 right-3 sm:right-4 text-xs font-semibold text-white bg-black/55 rounded-full px-2.5 py-0.5 select-none pointer-events-none">
+                          <span className="absolute top-5 right-5 lg:top-9 lg:right-9 text-xs font-semibold text-white bg-black/55 rounded-full px-2.5 py-0.5 select-none pointer-events-none">
                             {activeImage + 1}/{galleryImages.length}
                           </span>
                           {activeImage > 0 && (
@@ -519,7 +507,7 @@ export default function PostDetail() {
                             {galleryImages.map((_, i) => (
                               <span
                                 key={i}
-                                className={`h-1.5 rounded-full transition-all ${i === activeImage ? 'w-4 bg-orange-500' : 'w-1.5 bg-white/70'}`}
+                                className={`h-1.5 rounded-full transition-all ${i === activeImage ? 'w-4 bg-orange-500' : 'w-1.5 bg-gray-300'}`}
                               />
                             ))}
                           </div>
@@ -535,7 +523,15 @@ export default function PostDetail() {
               {/* ชื่อสิ่งของ + ขีดสีส้ม + เมนู ⋯ (เจ้าของโพสต์) */}
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
-                  <h1 style={styles.itemTitle}>{post.title || "ไม่ระบุชื่อสิ่งของ"}</h1>
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                    <h1 style={styles.itemTitle}>{post.title || "ไม่ระบุชื่อสิ่งของ"}</h1>
+                    <span
+                      className="px-2.5 py-0.5 rounded-full text-xs sm:text-sm font-semibold text-white select-none flex-shrink-0"
+                      style={{ backgroundColor: post.status === "matched" ? "#00c950" : post.type === "lost" ? "#FF2D38" : "#00A3EF" }}
+                    >
+                      {post.status === "matched" ? "สำเร็จ" : post.type === "lost" ? "หาย" : "พบ"}
+                    </span>
+                  </div>
                   <div className="mt-2 w-8 h-1 rounded-full bg-orange-500" />
                 </div>
                 {showOwnerTools && (
@@ -567,7 +563,7 @@ export default function PostDetail() {
                           role="menuitem"
                           disabled={deleting}
                           onClick={() => { setOwnerMenuOpen(false); setShowDeleteConfirm(true); }}
-                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-600 hover:bg-red-50 transition disabled:opacity-50"
+                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition disabled:opacity-50"
                         >
                           <Trash2 size={15} /> ลบประกาศ
                         </button>
@@ -698,7 +694,7 @@ export default function PostDetail() {
 
               {/* ส่วนหัวข้อรายละเอียด */}
               <div style={styles.sectionHeader}>
-                <Info size={18} style={{ color: '#1A202C' }} />
+                <Info size={18} style={{ color: '#F97316' }} />
                 <span style={styles.sectionTitleText}>รายละเอียด</span>
               </div>
 
@@ -708,7 +704,7 @@ export default function PostDetail() {
 
               {/* ส่วนหัวข้อผู้ประกาศ */}
               <div style={styles.sectionHeader}>
-                <User size={18} style={{ color: '#1A202C' }} />
+                <User size={18} style={{ color: '#F97316' }} />
                 <span style={styles.sectionTitleText}>ผู้ประกาศ</span>
               </div>
 
@@ -748,7 +744,7 @@ export default function PostDetail() {
                     </span>
                   </div>
 
-                  <div style={{ ...styles.reporterCard, backgroundColor: '#F0FDF4' }}>
+                  <div style={{ ...styles.reporterCard, backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }}>
                     {post.matched_with.reporter_avatar_url ? (
                       <img
                         src={post.matched_with.reporter_avatar_url}
@@ -867,16 +863,16 @@ export default function PostDetail() {
 
 const styles: Record<string, React.CSSProperties> = {
   container: { padding: 'clamp(12px, 4vw, 30px) 10px', display: 'flex', justifyContent: 'center', boxSizing: 'border-box' },
-  wrapper: { width: '100%', maxWidth: '640px', display: 'flex', flexDirection: 'column' as const, gap: '10px' },
+  wrapper: { width: '100%', maxWidth: '1040px', display: 'flex', flexDirection: 'column' as const, gap: '10px' },
 
-  backBtn: { display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'transparent', border: 'none', color: '#A0AEC0', fontSize: '12px', cursor: 'pointer', width: 'fit-content', padding: 0, textDecoration: 'none' },
+  backBtn: { display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#FFFFFF', border: '1px solid #EADFCB', color: '#4A5568', fontSize: '12px', cursor: 'pointer', width: 'fit-content', padding: '6px 14px', borderRadius: '999px', textDecoration: 'none', boxShadow: '0 2px 6px rgba(120,80,20,0.08)' },
 
 
-  detailCard: { backgroundColor: '#FFFFFF', borderRadius: 'clamp(14px, 4vw, 28px)', border: '1px solid #E2E8F0', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' as const, gap: 0, boxShadow: '0 10px 30px rgba(0,0,0,0.03)', boxSizing: 'border-box' },
+  detailCard: { backgroundColor: '#FFFFFF', borderRadius: 'clamp(14px, 4vw, 28px)', border: '1px solid #EADFCB', padding: 0, overflow: 'clip', gap: 0, boxShadow: '0 14px 40px -12px rgba(120,80,20,0.18)', boxSizing: 'border-box' },
   cardBody: { padding: 'clamp(14px, 4vw, 36px)', display: 'flex', flexDirection: 'column' as const, gap: '10px', boxSizing: 'border-box' },
 
   headerRow: { display: 'flex', alignItems: 'center', gap: '6px' },
-  itemTitle: { fontSize: 'clamp(15px, 4.5vw, 24px)', fontWeight: 'bold', color: '#1A202C', margin: 0 },
+  itemTitle: { fontSize: 'clamp(18px, 5vw, 28px)', fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.25, color: '#1A202C', margin: 0 },
 
   statusBadge: { color: '#FFFFFF', fontSize: 'clamp(10px, 2.8vw, 12px)', fontWeight: 'bold', padding: '2px 8px', borderRadius: '10px', display: 'inline-block' },
 
@@ -896,9 +892,9 @@ const styles: Record<string, React.CSSProperties> = {
   sectionHeader: { display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' },
   sectionTitleText: { fontSize: 'clamp(12px, 3.2vw, 14px)', fontWeight: 'bold', color: '#1A202C' },
 
-  detailsContentBox: { backgroundColor: '#EDF2F7', padding: 'clamp(10px, 3vw, 16px) clamp(12px, 3.5vw, 20px)', borderRadius: '14px', fontSize: 'clamp(12px, 3.2vw, 14px)', color: '#1A202C', lineHeight: '1.6', border: 'none', whiteSpace: 'pre-line' as const },
+  detailsContentBox: { backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', padding: 'clamp(10px, 3vw, 16px) clamp(12px, 3.5vw, 20px)', borderRadius: '14px', fontSize: 'clamp(12px, 3.2vw, 14px)', color: '#1A202C', lineHeight: '1.6', whiteSpace: 'pre-line' as const },
 
-  reporterCard: { backgroundColor: '#EDF2F7', padding: 'clamp(10px, 3vw, 16px)', borderRadius: '14px', display: 'flex', gap: '10px', alignItems: 'center', width: '100%', maxWidth: '280px', boxSizing: 'border-box' },
+  reporterCard: { backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', padding: 'clamp(10px, 3vw, 16px)', borderRadius: '14px', display: 'flex', gap: '10px', alignItems: 'center', width: '100%', boxSizing: 'border-box' },
   avatarCircle: { width: 'clamp(36px, 9vw, 48px)', height: 'clamp(36px, 9vw, 48px)', borderRadius: '50%', backgroundColor: '#A0AEC0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   avatarInitial: { color: '#FFFFFF', fontSize: 'clamp(15px, 4vw, 20px)', fontWeight: 'bold', userSelect: 'none' as const },
   reporterInfo: { display: 'flex', flexDirection: 'column' as const, gap: '2px' },
