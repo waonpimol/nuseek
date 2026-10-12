@@ -33,9 +33,8 @@ interface UserProfile {
 const MOBILE_PREVIEW = 3;
 const DESKTOP_PREVIEW = 8;
 
-// Avatar แบบ hybrid: มีรูป -> โชว์รูป, ไม่มีรูป -> ตัวอักษรแรก + สีจาก getAvatarColor (สูตรกลาง)
-// ถ้าส่ง className มา จะใช้ className กำหนดขนาด (รองรับ responsive เช่น "w-20 h-20 sm:w-28 sm:h-28")
-// ถ้าไม่ส่งจะ fallback ไปใช้ size (px) แบบเดิม
+// มีรูป -> โชว์รูป, ไม่มีรูป -> ตัวอักษรแรก + สีจาก getAvatarColor
+// ขนาดใช้ className ถ้าส่งมา (รองรับ responsive) ไม่งั้นใช้ size (px)
 const Avatar = ({
   name,
   avatarUrl,
@@ -85,7 +84,6 @@ export default function Profile() {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  // แจ้งผลลัพธ์ error ด้วย modal ในแอปเอง แทน alert() ของเบราว์เซอร์ ที่โชว์ "localhost บอกว่า..."
   const [resultModal, setResultModal] = useState<{ success: boolean; message: string } | null>(null);
   const [myItems, setMyItems] = useState<any[]>([]);
   const [itemsLoading, setItemsLoading] = useState(true);
@@ -165,7 +163,7 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-cream antialiased">
 
-      {/* ================= Navbar ================= */}
+      {/* Navbar */}
 
       <nav className="bg-white shadow-sm border-b border-gray-300">
         <div className="max-w-7xl mx-auto h-16 md:h-20 flex items-center justify-between px-4 md:px-8">
@@ -174,7 +172,6 @@ export default function Profile() {
             <Logo />
           </div>
 
-          {/* Menu (desktop) */}
           <div className="hidden md:flex items-center gap-8 text-gray-700">
             <Link to="/" className="flex items-center gap-2 hover:text-orange-500">
               <Home size={20} />
@@ -192,12 +189,10 @@ export default function Profile() {
             </Link>
           </div>
 
-          {/* Right */}
           <div className="flex items-center gap-2 md:gap-4">
             <NotificationBell />
             <Link to="/profile" className="text-orange-500"><User /></Link>
 
-            {/* ปุ่มแฮมเบอร์เกอร์ (มือถือเท่านั้น) */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-full text-gray-600 hover:text-orange-500 hover:bg-gray-100 transition"
@@ -209,7 +204,6 @@ export default function Profile() {
 
         </div>
 
-        {/* Menu (mobile, ยุบ/ขยาย) */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-gray-100 bg-white px-4 py-2 flex flex-col">
             <Link to="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2.5 py-2.5 text-sm text-gray-700 hover:text-orange-500 border-b border-gray-50">
@@ -228,11 +222,11 @@ export default function Profile() {
         )}
       </nav>
 
-      {/* ================= Header ================= */}
+      {/* Header */}
 
       <div className="max-w-7xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
 
-        {/* ================= Profile Card ================= */}
+        {/* Profile Card */}
 
         <div className="bg-white rounded-3xl shadow-sm p-4 sm:p-8">
           {loading ? (
@@ -281,7 +275,7 @@ export default function Profile() {
           )}
         </div>
 
-        {/* ================= Statistics ================= */}
+        {/* Statistics */}
 
         <div className="grid grid-cols-4 gap-1.5 sm:gap-5">
           <div className="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-6 shadow-sm text-center">
@@ -305,7 +299,7 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* ================= My Posts ================= */}
+        {/* My Posts */}
 
         <div className="bg-white rounded-3xl shadow-sm p-4 sm:p-6">
 
@@ -334,7 +328,6 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* Tabs */}
           <div className="flex gap-2 mt-5 sm:mt-8 flex-wrap">
             {[
               ["all", "ทั้งหมด"],
@@ -356,7 +349,7 @@ export default function Profile() {
             ))}
           </div>
 
-          {/* ================= รายการประกาศของฉัน ================= */}
+          {/* รายการประกาศของฉัน */}
 
           {itemsLoading && (
             <PostSkeletonList count={4} showReporter={false} gridClassName="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" className="gap-3 sm:gap-5 mt-5 sm:mt-6" />
@@ -403,7 +396,6 @@ export default function Profile() {
             </div>
           )}
 
-          {/* ปุ่มดูเพิ่มเติม/ซ่อน: โชว์เมื่อมีโพสต์เกินจำนวนที่แสดง (มือถือ > 3 / จอใหญ่ > 8) */}
           {!itemsLoading && filteredItems.length > MOBILE_PREVIEW && (
             <div className={`flex justify-center mt-4 sm:mt-6 ${filteredItems.length <= DESKTOP_PREVIEW ? "sm:hidden" : ""}`}>
               <button
@@ -421,7 +413,7 @@ export default function Profile() {
           )}
         </div>
 
-        {/* ================= Logout ================= */}
+        {/* Logout */}
 
         <button
           onClick={handleLogoutClick}
@@ -434,7 +426,7 @@ export default function Profile() {
 
       </div>
 
-      {/* ================= Logout Confirm Modal ================= */}
+      {/* Logout Confirm Modal */}
 
       {showLogoutModal && (
         <div

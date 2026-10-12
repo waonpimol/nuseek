@@ -35,25 +35,20 @@ def upload_image_to_supabase(file_path: str, filename: str) -> str:
 @router.post("/report")
 async def report_item(
     item_type: str = Form(...),       # "lost" หรือ "found"
-    item_name: str = Form(...),       # ผู้ใช้ต้องกรอกเองเสมอ ไม่มี AI สรุปให้อีกต่อไป
+    item_name: str = Form(...),
     details: str = Form(""),
-    location: str = Form(""),         # สถานที่ที่ผู้ใช้เลือกจาก dropdown ในฟอร์ม
-    user_id: str = Form(""),          # uuid ของผู้ login ที่ส่งมาจาก frontend (supabase.auth.getUser())
+    location: str = Form(""),
+    user_id: str = Form(""),          # uuid ของผู้ login
     images: list[UploadFile] = File(default=[]),   # แนบได้หลายรูป (สูงสุด MAX_IMAGES) รูปแรก = รูปปก
-    image: UploadFile | None = File(None),         # ช่องเดิมรูปเดียว เก็บไว้ให้หน้าเว็บเวอร์ชันเก่ายังใช้ได้
+    image: UploadFile | None = File(None),         # ช่องรูปเดียวแบบเดิม รองรับ client เก่า
 ):
     """
-    รับข้อมูลจากฟอร์ม ReportLost / ReportFound แล้วประมวลผลตรง ๆ แบบ deterministic
-    (ไม่ผ่าน multi-agent อีกต่อไป เพราะลำดับงานตายตัวอยู่แล้ว ไม่มีอะไรให้ LLM ต้องมา
-    "ตัดสินใจ" ว่าจะเรียก tool ไหนต่อ — ตัดรอบ LLM ที่ไม่จำเป็นออก ทำให้เร็วขึ้นมาก
-    embedding สร้างจากข้อความที่ผู้ใช้พิมพ์เองล้วน ๆ (item_name + details) ไม่ผ่าน BLIP แล้ว
-    เพราะ caption ภาษาอังกฤษจาก BLIP ไปเจือจาง embedding ภาษาไทย ทำให้ของชิ้นเดียวกันที่ถ่ายคนละมุม
-    คะแนนความคล้ายตกลงมาต่ำกว่า threshold ได้ง่าย
-    หน้า "ค้นหาจากรูป" (/search-by-image) ยังใช้ BLIP อยู่เหมือนเดิม เพราะจุดนั้นไม่มีข้อความให้ใช้เลย
-    ต้องพึ่งภาพอย่างเดียว ไม่กระทบกับ endpoint นี้
+    รับข้อมูลจากฟอร์ม ReportLost / ReportFound บันทึกประกาศ แล้วหาแมทช์กับประกาศฝั่งตรงข้าม
+    embedding สร้างจากข้อความที่ผู้ใช้พิมพ์เอง (item_name + details) ไม่ใช้ caption จาก BLIP
+    เพราะ caption ภาษาอังกฤษไปเจือจาง embedding ภาษาไทย ทำให้ของชิ้นเดียวกันได้คะแนนความคล้ายต่ำ
     """
 
-    # 1) ถ้ามีรูปแนบ: เซฟไฟล์ชั่วคราวทีละรูป + อัปโหลดขึ้น Storage (รูปไหนอัปโหลดไม่สำเร็จข้ามไป รูปอื่นยังใช้ได้)
+    # รูปไหนอัปโหลดไม่สำเร็จข้ามไป รูปอื่นยังใช้ได้
     files = [f for f in images if f is not None and (f.filename or "")]
     if image is not None and (image.filename or ""):
         files.append(image)
@@ -78,16 +73,10 @@ async def report_item(
 
     storage_image_path = storage_image_paths[0] if storage_image_paths else ""   # รูปปก
 
-    # 2) รวมข้อความทั้งหมดไว้ใช้สร้าง embedding — ใช้แค่ข้อความที่ผู้ใช้พิมพ์เอง ไม่ผ่าน BLIP แล้ว
     combined_text = " ".join(filter(None, [item_name.strip(), details.strip()])).strip()
-
-    # 3) สร้าง embedding ตรง ๆ 
     embedding = embed_text(combined_text)
-
-    # 4) ชื่อสิ่งของมาจากที่ผู้ใช้กรอกเองเสมอ
     title = item_name.strip()
 
-    # 5) บันทึกไอเทมลง DB ตรง ๆ
     try:
         insert_result = insert_item_direct(
             item_type=item_type,
@@ -103,8 +92,6 @@ async def report_item(
         print(f"[insert_item_direct] error: {e}")
         raise HTTPException(status_code=500, detail="บันทึกประกาศไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")
 
-    # 6) (ไฟล์ชั่วคราวลบไปแล้วในขั้นตอนที่ 1 ทีละรูป)
-
     if not insert_result:
         return {
             "message": "บันทึกประกาศไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
@@ -114,7 +101,7 @@ async def report_item(
     new_item = insert_result[0]
     new_item_id = new_item["id"]
 
-    # 7) ค้นหาไอเทมประเภทตรงข้ามที่คล้ายกัน แล้วบันทึกแมทช์ทุกอันที่เจอ 
+    # ค้นหาไอเทมประเภทตรงข้ามที่คล้ายกัน แล้วบันทึกแมทช์ทุกอันที่เจอ
     matches = search_similar_items(item_type, embedding, top_k=5, threshold=0.7)
 
     for m in matches:
@@ -127,7 +114,6 @@ async def report_item(
         except Exception as e:
             print(f"[save_match] error: {e}")
 
-    # 8) สรุปข้อความกลับไปให้ frontend 
     matched_item_id = None
     if matches:
         best = max(matches, key=lambda x: x.get("score", 0))

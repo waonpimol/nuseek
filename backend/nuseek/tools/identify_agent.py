@@ -11,26 +11,18 @@ from google.adk.sessions import InMemorySessionService
 from google.adk.tools import google_search
 from google.genai import types
 
-# ==========================================
-# IDENTIFY AGENT (ADK + Google Search) — ใช้ตอน "แจ้งโพสต์" เท่านั้น
-# ==========================================
-#
-# ช่วยผู้ใช้ที่ไม่รู้ว่าสิ่งของในรูปคืออะไร/ยี่ห้อ/รุ่นอะไร (เช่น หูฟังแบรนด์อะไร)
+# Identify agent (ADK + Google Search) ใช้ตอนแจ้งโพสต์ ช่วยผู้ใช้ที่ไม่รู้ว่าสิ่งของในรูปคืออะไร/ยี่ห้อ/รุ่นอะไร (เช่น หูฟังแบรนด์อะไร)
 # ทางหลัก: ADK agent ดูรูป แล้วใช้ google_search ค้นหาชื่อยี่ห้อ/รุ่น → ตอบเป็น JSON
 # ทางสำรอง: ถ้าทางหลักล้มเหลว (โควตา Google Search เต็ม / tool error / timeout)
 #           ให้ Gemini ดูรูปอย่างเดียว (อ่านโลโก้/ตัวอักษร/รูปทรง) ไม่ค้นเว็บ
-# ผลที่ได้เป็น "คำแนะนำ" ให้ผู้ใช้กดเติมช่องชื่อเอง ไม่เติมให้อัตโนมัติ และไม่ยุ่งกับช่องรายละเอียด
 #
 # หมายเหตุ: instruction ห้ามมีวงเล็บปีกกา { } เพราะ ADK จะตีความเป็นตัวแปร state แล้ว error
 #
 # ข้อจำกัดของ ADK: google_search เป็น built-in tool ที่ใช้ได้เพียงตัวเดียวต่อ agent
-# จึงแยกเป็น agent ของตัวเอง ไม่รวมกับ verification agent ในไฟล์ verification_agent.py
-# และเพราะเหตุเดียวกันจึงใช้ output_schema ไม่ได้ ต้อง parse JSON จากข้อความเอง (ดู _parse_json)
+# จึงแยกเป็น agent ของตัวเอง และใช้ output_schema ไม่ได้ ต้อง parse JSON จากข้อความเอง (ดู _parse_json)
 #
-# โควตา: Google Search grounding มีโควตาแยกจากการเรียกโมเดลปกติ และบน Free tier อาจเต็ม/เป็นศูนย์
-# (อาการ: log ขึ้น agent+search error ... 429 แล้วระบบใช้ทางสำรองแทน) แก้ด้วยการเปิด billing หรือเปลี่ยน IDENTIFY_MODEL
-
-# ตั้งค่าโมเดลเองได้ผ่าน .env (IDENTIFY_MODEL) ถ้าโมเดลเริ่มต้นไม่รองรับ Google Search
+# โควตา Google Search grounding แยกจากการเรียกโมเดลปกติ บน Free tier อาจเต็ม (error 429 → ใช้ทางสำรอง)
+# แก้ด้วยการเปิด billing หรือเปลี่ยนโมเดลผ่าน IDENTIFY_MODEL ใน .env
 _MODEL = os.getenv("IDENTIFY_MODEL", "gemini-2.5-flash")
 _APP_NAME = "nuseek_identify"
 _TIMEOUT_SECONDS = 45
@@ -180,7 +172,7 @@ async def _identify_with_search(data: bytes, mime: str) -> tuple[str, list]:
 async def _identify_without_search(data: bytes, mime: str) -> str:
     """ทางสำรอง: ถ้าค้น Google ไม่ได้ (โควตา/tool ล้มเหลว) ให้ Gemini ดูรูปอย่างเดียว ไม่ค้นเว็บ
     ยังอ่านโลโก้/ข้อความบนตัวของได้ แต่ไม่ได้ยืนยันรุ่นจากเว็บ จึงลด confidence ลง (ดู identify_item)"""
-    from google import genai  # import แบบ lazy ให้ทางสำรองแยกจาก agent หลัก
+    from google import genai
 
     client = genai.Client()
     response = await client.aio.models.generate_content(

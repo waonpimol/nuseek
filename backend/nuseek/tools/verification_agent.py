@@ -4,14 +4,11 @@ import mimetypes
 from google import genai
 from google.genai import types
 
-# ==========================================
-# LLM VERIFICATION AGENT 
-# ==========================================
-#
 # หน้าที่ 2 อย่าง:
 #   1) describe_image — ให้ Gemini ดูรูปแล้วบรรยายเฉพาะสิ่งของหลักเป็นภาษาไทย (ไม่เอาคน/มือ/พื้นหลัง)
 #      ถ้า Gemini ล้มเหลว fallback ไปใช้ BLIP + translate_caption_to_thai
 #   2) verify_candidates — พิจารณา candidate ที่ vector search เจอมาอีกที โดยดู "ข้อความ" จริง ๆ
+
 _genai_client = genai.Client()
 
 _MODEL = "gemini-3.5-flash-lite"

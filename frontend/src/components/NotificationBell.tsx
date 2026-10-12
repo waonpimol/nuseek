@@ -6,9 +6,6 @@ import { getNotificationTitle } from "../utils/notification";
 import { formatRelativeTime } from "../utils/format";
 import NotificationIcon from "./NotificationIcon";
 
-// กระดิ่งแจ้งเตือนบน navbar + กล่องรายการแจ้งเตือน ใช้ร่วมกันทุกหน้า
-// อยากแก้หน้าตา/ข้อความ/การทำงานของแจ้งเตือน แก้ที่ไฟล์นี้ (กับ NotificationIcon, utils/notification) ที่เดียว
-// ดึงข้อมูลเองผ่าน useNotifications ไม่ต้องส่ง props
 export default function NotificationBell() {
   const navigate = useNavigate();
   const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications();

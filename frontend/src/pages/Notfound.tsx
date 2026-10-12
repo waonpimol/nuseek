@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { PackageSearch, Home } from "lucide-react";
 
-// หน้าที่แสดงเมื่อพิมพ์ URL ที่ไม่มีในระบบ (แทนหน้าขาวเปล่า)
 export default function NotFound() {
   return (
     <div className="min-h-screen bg-white flex items-center justify-center px-4 py-10 font-kanit">

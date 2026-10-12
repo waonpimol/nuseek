@@ -33,7 +33,6 @@ const getAvatarColor = (name: string) => {
 	return `hsl(${hue}, 60%, 45%)`;
 };
 
-// Avatar แบบ hybrid: มีรูป -> โชว์รูป, ไม่มีรูป -> ตัวอักษรแรก + สีจาก hash
 const Avatar = ({
 	name,
 	avatarUrl,
@@ -91,11 +90,9 @@ export default function EditProfile() {
 
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 	const [showLogoutModal, setShowLogoutModal] = useState(false);
-	// แจ้งผลลัพธ์ต่างๆ ด้วย modal ในแอปเอง แทน alert() ของเบราว์เซอร์ ที่โชว์ "localhost บอกว่า..."
 	const [resultModal, setResultModal] = useState<{ success: boolean; message: string; goToProfile?: boolean } | null>(null);
 
 
-	// 1. ดึงข้อมูลผู้ใช้ปัจจุบันมาเติมในฟอร์ม
 	useEffect(() => {
 		async function loadUserData() {
 			try {
@@ -136,7 +133,6 @@ export default function EditProfile() {
 		loadUserData();
 	}, [navigate]);
 
-	// 2. ฟังก์ชันอัปโหลดรูปโปรไฟล์
 	const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
 		if (!file || !userId) return;
@@ -185,7 +181,6 @@ export default function EditProfile() {
 		}
 	};
 
-	// 3. ฟังก์ชันลบรูปโปรไฟล์ (กลับไปใช้ตัวอักษรแทน)
 	const handleRemoveAvatar = async () => {
 		if (!userId || !avatarUrl) return;
 
@@ -207,7 +202,6 @@ export default function EditProfile() {
 		}
 	};
 
-	// 4. ฟังก์ชันอัปเดตข้อมูลลง Supabase
 	const handleSaveAll = async (e: React.FormEvent | React.MouseEvent) => {
 		e.preventDefault();
 		if (!userId) return;
@@ -230,12 +224,10 @@ export default function EditProfile() {
 
 			if (error) throw error;
 
-			// บันทึกสำเร็จ: toast แล้วกลับหน้าโปรไฟล์ทันที ไม่ต้องให้กดปิด popup ก่อน (Provider อยู่ระดับแอป toast จึงอยู่ข้ามหน้า)
 			showToast("บันทึกการเปลี่ยนแปลงเรียบร้อยแล้ว");
 			navigate("/profile");
 		} catch (error: any) {
-			// ดักจับ error เฉพาะจาก CHECK constraint ที่ตั้งไว้ใน Supabase (phone_number_digits_only)
-			// แล้วแปลงเป็นข้อความไทยที่เข้าใจง่าย แทนที่จะโชว์ error ดิบๆ จากฐานข้อมูล
+			// แปล error จาก CHECK constraint phone_number_digits_only เป็นข้อความไทย
 			if (error.message?.includes("phone_number_digits_only")) {
 				setResultModal({ success: false, message: "กรุณากรอกเบอร์โทรศัพท์เป็นตัวเลขเท่านั้น (ห้ามมีตัวอักษรหรือสัญลักษณ์ปน)" });
 			} else {
@@ -246,7 +238,6 @@ export default function EditProfile() {
 		}
 	};
 
-	// 5. ฟังก์ชันออกจากระบบ
 	const handleLogoutClick = (e: React.MouseEvent<HTMLButtonElement>) => {
 		e.preventDefault();
 		setShowLogoutModal(true);
@@ -267,14 +258,13 @@ export default function EditProfile() {
 
 	return (
 		<div className="min-h-screen bg-cream font-kanit">
-			{/* ================= Navbar ================= */}
+			{/* Navbar */}
 			<nav className="bg-white shadow-sm border-b border-gray-300">
 				<div className="max-w-7xl mx-auto h-16 md:h-20 flex items-center justify-between px-4 md:px-8">
 					<div className="flex items-center gap-3">
 						<Logo />
 					</div>
 
-					{/* Menu (desktop) */}
 					<div className="hidden md:flex items-center gap-8 text-gray-700">
 						<Link to="/" className="flex items-center gap-2 hover:text-orange-500">
 							<Home size={20} />
@@ -290,14 +280,12 @@ export default function EditProfile() {
 						</Link>
 					</div>
 
-					{/* Right */}
 					<div className="flex items-center gap-2 md:gap-4">
 						<NotificationBell />
 						<Link to="/profile" className="hover:text-orange-500 text-gray-600">
 							<User />
 						</Link>
 
-						{/* ปุ่มแฮมเบอร์เกอร์ (มือถือเท่านั้น) */}
 						<button
 							onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
 							className="md:hidden p-2 rounded-full text-gray-600 hover:text-orange-500 hover:bg-gray-100 transition"
@@ -308,7 +296,6 @@ export default function EditProfile() {
 					</div>
 				</div>
 
-				{/* Menu (mobile, ยุบ/ขยาย) */}
 				{mobileMenuOpen && (
 					<div className="md:hidden border-t border-gray-100 bg-white px-4 py-2 flex flex-col">
 						<Link to="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2.5 py-2.5 text-sm text-gray-700 hover:text-orange-500 border-b border-gray-50">
@@ -327,7 +314,7 @@ export default function EditProfile() {
 				)}
 			</nav>
 
-			{/* ================= Header ================= */}
+			{/* Header */}
 			<div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
 
 				{loading ? (
@@ -337,10 +324,9 @@ export default function EditProfile() {
 				) : (
 					<form onSubmit={handleSaveAll} className="space-y-6">
 
-						{/* ================= Main Card ================= */}
+						{/* Main Card */}
 						<div className="bg-white rounded-3xl shadow-sm p-4 sm:p-5 md:p-8">
 
-							{/* ---- Avatar Header ---- */}
 							<div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 sm:gap-6 pb-4 sm:pb-6 border-b text-center sm:text-left">
 								<div className="relative">
 									<Avatar name={displayName} avatarUrl={avatarUrl} size={76} />
@@ -394,7 +380,6 @@ export default function EditProfile() {
 								</div>
 							</div>
 
-							{/* ---- 1. ข้อมูลพื้นฐาน ---- */}
 							<div className="py-4 sm:py-6 border-b">
 								<div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-5">
 									<User className="text-orange-500" size={16} />
@@ -436,7 +421,6 @@ export default function EditProfile() {
 								</div>
 							</div>
 
-							{/* ---- 2. ข้อมูลการติดต่อ ---- */}
 							<div className="py-4 sm:py-6">
 								<div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-5">
 									<Phone className="text-orange-500" size={16} />
@@ -490,7 +474,7 @@ export default function EditProfile() {
 
 						</div>
 
-						{/* ================= Action Row ================= */}
+						{/* Action Row */}
 						<div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 sm:gap-4">
 							<Link
 								to="/profile"
@@ -513,7 +497,7 @@ export default function EditProfile() {
 					</form>
 				)}
 
-				{/* ================= Logout ================= */}
+				{/* Logout */}
 				<button
 					onClick={handleLogoutClick}
 					className="w-full bg-white hover:bg-red-50 border border-red-200 text-red-500 rounded-2xl py-2.5 sm:py-4 text-sm sm:text-base flex justify-center items-center gap-2 sm:gap-3 font-medium transition"
@@ -523,7 +507,7 @@ export default function EditProfile() {
 					ออกจากระบบ
 				</button>
 
-				{/* ================= Logout Confirm Modal ================= */}
+				{/* Logout Confirm Modal */}
 
 				{showLogoutModal && (
 					<div

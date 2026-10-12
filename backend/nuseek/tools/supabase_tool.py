@@ -6,18 +6,11 @@ from google.adk.tools.tool_context import ToolContext
 
 load_dotenv()
 
-# ==========================================
-# SUPABASE CLIENT
-# ==========================================
-
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# ==========================================
-# STORAGE HELPERS
-# ==========================================
 BUCKET_NAME = "items-images"
 
 
@@ -43,10 +36,6 @@ def attach_image_url(row: dict) -> dict:
     return row
 
 
-# ==========================================
-# INSERT ITEM (plain function, ไม่ผ่าน ADK/LLM)
-# ใช้โดย /report ตรงๆ เพราะขั้นตอนนี้ตายตัวอยู่แล้ว ไม่มีอะไรให้ AI ต้อง "ตัดสินใจ"
-# ==========================================
 def insert_item_direct(item_type, title, description, image_path, location, embedding, user_id, image_paths=None):
     if not embedding:
         return {"success": False, "error": "ไม่พบ embedding"}
@@ -67,10 +56,6 @@ def insert_item_direct(item_type, title, description, image_path, location, embe
     return result.data
 
 
-# ==========================================
-# SEARCH SIMILAR ITEMS (plain function, ไม่ผ่าน ADK/LLM)
-# หา item ประเภทตรงข้าม (lost หา found, found หา lost) ที่คล้ายกันด้วย embedding ที่คำนวณไว้แล้ว
-# ==========================================
 def search_similar_items(current_type, embedding, top_k=5, threshold=0.6):
     if not embedding:
         return []
@@ -98,10 +83,7 @@ def search_similar_items(current_type, embedding, top_k=5, threshold=0.6):
     rows = result.data or []
     return [attach_image_url(x) for x in rows if x.get("score", 0) >= threshold]
 
-# ==========================================
-# SEARCH BY EMBEDDING (plain function, ไม่ผ่าน ADK state)
-# ใช้โดย endpoint /search-by-image ที่ไม่ต้องพึ่ง LLM agent
-# ==========================================
+
 def get_item_ids_by_user(user_id: str) -> list:
     """id ของโพสต์ทั้งหมดที่ user คนนี้เป็นเจ้าของ (ใช้กันไม่ให้ค้นหาด้วยรูปเจอโพสต์ตัวเอง)"""
     if not user_id:
@@ -145,8 +127,7 @@ def search_by_embedding(embedding: list, top_k: int = 10, threshold: float = 0.3
     matches.sort(key=lambda x: x.get("score", 0), reverse=True)
     matches = [attach_image_url(x) for x in matches[:top_k]]
 
-    # ฟังก์ชัน search_items บางเวอร์ชันไม่ส่ง created_at กลับมา (ดู migrations/003)
-    # ถ้าขาด ให้ดึงเฉพาะ id + created_at ของผลที่จะโชว์มาเติม (query เดียว) เพื่อให้การ์ดแสดงเวลาได้
+    # rpc search_items บางเวอร์ชันไม่ส่ง created_at กลับมา จึงดึงมาเติมด้วย query เดียว
     missing = [m["id"] for m in matches if not m.get("created_at")]
     if missing:
         try:
@@ -161,9 +142,6 @@ def search_by_embedding(embedding: list, top_k: int = 10, threshold: float = 0.3
     return matches
 
 
-# ==========================================
-# SEARCH LOGS (เก็บไว้ debug ย้อนหลัง + ใช้เป็นหลักฐานตอนเขียนบทประเมินผล thesis)
-# ==========================================
 def log_search_query(caption_en: str, caption_th: str, candidates: list, shown_count: int):
     """บันทึกทุกครั้งที่มีคนค้นหาด้วยรูป: BLIP caption ดิบ, คำแปลไทย, candidate ทุกตัวที่เจอ
     พร้อมคำตัดสินของ verification agent (score, llm_is_match, llm_reason) และจำนวนที่โชว์จริง
@@ -182,10 +160,6 @@ def log_search_query(caption_en: str, caption_th: str, candidates: list, shown_c
         print(f"[log_search_query] error: {e}")
 
 
-
-# ==========================================
-# NOTIFICATIONS
-# ==========================================
 def create_notification(user_id, item_id, matched_item_id, message, match_id=None, title=None):
     """สร้างแจ้งเตือน 1 รายการให้ user_id คนหนึ่ง (ข้ามถ้าไม่มี user_id เช่นโพสต์แบบไม่ login)
     title = หัวข้อสั้นๆ ที่หน้าเว็บโชว์เป็นตัวหนาเหนือข้อความ (ต้องรัน migration 004 ก่อนถึงจะถูกเก็บ)"""
@@ -204,7 +178,7 @@ def create_notification(user_id, item_id, matched_item_id, message, match_id=Non
         try:
             return supabase.table("notifications").insert({**row, "title": title}).execute().data
         except Exception as e:
-            # ยังไม่ได้รัน migration 004 (ไม่มีคอลัมน์ title) → สร้างแบบไม่มีหัวข้อต่อ ไม่ให้แจ้งเตือนหาย
+            # ฐานข้อมูลที่ยังไม่มีคอลัมน์ title → สร้างแบบไม่มีหัวข้อ ไม่ให้แจ้งเตือนหาย
             print(f"[create_notification] insert with title failed, retrying without title: {e}")
 
     result = supabase.table("notifications").insert(row).execute()
@@ -315,9 +289,6 @@ def _notify_match_completed(lost_item_id, found_item_id, confirming_user_id):
         print(f"[_notify_match_completed] error: {e}")
 
 
-# ==========================================
-# SAVE MATCH
-# ==========================================
 def save_match(lost_item_id, found_item_id, similarity_score):
     """บันทึกแมทช์ที่ AI เจอ (status='pending') + แจ้งเตือนเจ้าของทั้งคู่
     หมายเหตุ: ไม่เปลี่ยนสถานะไอเทมเป็น matched ที่นี่แล้ว!
@@ -340,21 +311,14 @@ def save_match(lost_item_id, found_item_id, similarity_score):
     match_row = (result.data or [{}])[0]
     match_id = match_row.get("id")
 
-    # แจ้งเตือนเจ้าของทั้งสองฝั่ง พร้อมแนบ match_id ให้กดยืนยันได้ 
     _notify_match_owners(lost_item_id, found_item_id, match_id)
 
     return result.data
 
 
-# ==========================================
-# UPDATE STATUS
-# ==========================================
 def update_item_status(item_id, status):
     update = {"status": status}
-    # บันทึกเวลาที่จบเคส (resolved_at) ตอนเปลี่ยนเป็น matched — ทุกทางที่ปิดเคสผ่านฟังก์ชันนี้ที่เดียว
-    # (ยืนยัน/ส่งมอบแมทช์, ยืนยันการอ้างสิทธิ์, ปิดโพสต์ของผู้อ้างสิทธิ์) ใช้เวลานี้แสดง "จบเคส x ที่แล้ว"
-    # และคำนวณระยะเวลาที่เคสใช้จนจบ (resolved_at - created_at) ได้
-    # ต้องมีคอลัมน์ items.resolved_at ในฐานข้อมูลก่อน (ดูนิยามตารางใน migrations/001_tables.sql)
+    # ทุกทางที่ปิดเคสผ่านฟังก์ชันนี้ที่เดียว จึงบันทึก resolved_at ไว้ตรงนี้
     if status == "matched":
         update["resolved_at"] = datetime.now(timezone.utc).isoformat()
     result = (
@@ -368,9 +332,6 @@ def update_item_status(item_id, status):
     return result.data
 
 
-# ==========================================
-# CONFIRM MATCH (สเตจ 1 — เจ้าของฝั่ง "ของหาย" กดปุ่ม "ยืนยันว่าใช่ของฉัน" เท่านั้น)
-# ==========================================
 def confirm_match(match_id: str):
     """เจ้าของฝั่งของหายกดยืนยันว่าไอเทมนี้คือของของตัวเองจริง (แค่ยืนยัน "ตัวตน" ของสิ่งของ)
     ยังไม่ปิดเคส! ไม่เปลี่ยนสถานะไอเทมเป็น 'matched' ที่นี่ เพราะยังไม่มีการส่งมอบของเกิดขึ้นจริง —
@@ -398,9 +359,6 @@ def confirm_match(match_id: str):
     return {"success": True, "lost_item_id": lost_item_id, "found_item_id": found_item_id}
 
 
-# ==========================================
-# REJECT MATCH (เจ้าของฝั่ง "ของหาย" กดปุ่ม "ไม่ใช่ของฉัน")
-# ==========================================
 def reject_match(match_id: str):
     """เจ้าของของหายเช็กแล้วพบว่าไม่ใช่ของตัวเอง — ยกเลิกแมทช์นี้ทิ้ง (status='rejected')
     ไอเทมทั้งคู่ยัง active ตามปกติ ไม่แจ้งเตือนอีกฝั่ง เพราะไม่ใช่เรื่องที่เขาต้องรู้
@@ -418,9 +376,6 @@ def reject_match(match_id: str):
     return {"success": True}
 
 
-# ==========================================
-# COMPLETE MATCH (สเตจ 2 — ฝ่ายใดฝ่ายหนึ่งกดปุ่ม "ได้รับของแล้ว/คืนของแล้ว" ปิดเคสจริง)
-# ==========================================
 def complete_match(match_id: str, confirming_user_id: str = None):
     """ฝ่ายใดฝ่ายหนึ่ง (เจ้าของของหาย หรือ ผู้แจ้งพบ) กดยืนยันว่าได้ส่งมอบของกันจริงแล้ว
     ต้องรอให้แมทช์อยู่ในสถานะ 'confirmed' ก่อนเท่านั้น (เจ้าของของหายต้องกด "ใช่ของฉัน" มาก่อนแล้ว)
@@ -448,9 +403,6 @@ def complete_match(match_id: str, confirming_user_id: str = None):
     return {"success": True, "lost_item_id": lost_item_id, "found_item_id": found_item_id}
 
 
-# ==========================================
-# CLAIM ITEM (ปุ่ม "ใช่ของฉัน" จากหน้าค้นหาด้วยรูปภาพ)
-# ==========================================
 def claim_item(item_id: str, claimant_user_id: str):
     """ผู้ใช้ที่ไม่ใช่เจ้าของโพสต์กดปุ่มอ้างสิทธิ์/แจ้งว่าเจอของ — ใช้ได้ทั้งสองทิศทาง:
     - โพสต์เป็น "ของที่พบ" (type='found') → ผู้กดคือคนที่ทำของหาย กำลังยืนยันว่า "นี่ของฉัน"
@@ -513,7 +465,7 @@ def claim_item(item_id: str, claimant_user_id: str):
             f"ติดต่อไปนัดรับคืนได้เลย ({contact_text}) ได้ของคืนแล้วอย่าลืมกดยืนยัน \"ได้รับของแล้ว\" ที่โพสต์นี้ด้วย"
         )
     else:
-        # โพสต์เป็น "ของที่พบ" (ค่าเริ่มต้น/พฤติกรรมเดิม) — ผู้กดปุ่มคือคนที่ทำของหาย กำลังอ้างว่าเป็นของตัวเอง
+        # โพสต์เป็น "ของที่พบ" — ผู้กดปุ่มคือคนที่ทำของหาย กำลังอ้างว่าเป็นของตัวเอง
         message = (
             f'{claimant_name} แจ้งว่า "{title}" ที่คุณโพสต์ไว้น่าจะเป็นของเขา '
             f"ติดต่อไปตรวจสอบได้เลย ({contact_text}) ส่งคืนของแล้วอย่าลืมกดยืนยัน \"ได้รับของแล้ว\" ที่โพสต์นี้ด้วย"
@@ -530,9 +482,6 @@ def claim_item(item_id: str, claimant_user_id: str):
     return {"success": True, "claim_id": claim_id}
 
 
-# ==========================================
-# EDIT / DELETE OWN POST (เจ้าของโพสต์แก้ไขหรือลบประกาศที่ลงผิด)
-# ==========================================
 def _get_own_active_item(item_id: str, user_id: str):
     """ตรวจสิทธิ์ร่วมของการแก้ไข/ลบ: ต้องมีโพสต์, เป็นเจ้าของ, และโพสต์ยังไม่จบเคส
     คืน (item, None) ถ้าผ่าน หรือ (None, ข้อความ error) ถ้าไม่ผ่าน
@@ -652,7 +601,7 @@ def delete_own_item(item_id: str, user_id: str):
         except Exception as e:
             print(f"delete_own_item: remove images failed: {e}")
 
-    # แจ้งอีกฝั่ง — ทำหลังลบสำเร็จแล้ว
+    # แจ้งอีกฝั่งหลังลบสำเร็จแล้ว
     for owner_id, other_item_id, other_title in other_owner_notices:
         try:
             create_notification(
@@ -675,9 +624,6 @@ def delete_own_item(item_id: str, user_id: str):
     return {"success": True, "cancelled_matches": len(other_owner_notices), "cancelled_claims": len(pending_claims)}
 
 
-# ==========================================
-# CLOSE CLAIMANT'S OWN ORPHANED POST (side-effect ของ confirm_claim)
-# ==========================================
 def _close_claimant_own_post(claimant_user_id: str, claimed_item_type: str):
     """ถ้าผู้อ้างสิทธิ์มีโพสต์ของตัวเอง (ประเภทตรงข้ามกับไอเทมที่เพิ่งปิดเคสไป) ค้างเป็น active
     อยู่ในระบบ ถือว่าน่าจะเป็นของชิ้นเดียวกันที่เพิ่งจบเคสไปแล้ว (เช่น เขาแจ้งของหายไว้เอง แต่ดันมาเจอ
@@ -723,9 +669,6 @@ def _close_claimant_own_post(claimant_user_id: str, claimed_item_type: str):
         print(f"[_close_claimant_own_post] error: {e}")
 
 
-# ==========================================
-# CONFIRM CLAIM (ปุ่ม "ได้รับของแล้ว/ส่งคืนของแล้ว" กดได้ทั้ง 2 ฝ่าย)
-# ==========================================
 def confirm_claim(claim_id: str, confirming_user_id: str = None):
     """ฝ่ายใดฝ่ายหนึ่งกดยืนยันว่ามีการส่งคืนของกันเรียบร้อยแล้ว (เจ้าของโพสต์ หรือ ผู้อ้างสิทธิ์ก็ได้)
     ตอนนี้แหละที่ไอเทมถึงจะเปลี่ยนเป็น matched จริง (หายจากหน้าประกาศทั่วไป

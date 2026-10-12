@@ -1,12 +1,9 @@
-// Skeleton ของการ์ดโพสต์ — รูปทรงเดียวกับการ์ดจริงในหน้า Allposts / Profile
-// มือถือ: แถวนอน (รูปเล็กซ้าย + ข้อความขวา) / จอใหญ่: การ์ดแนวตั้ง (รูปบน + ข้อความล่าง)
+// Skeleton ของการ์ดโพสต์ ต้องรูปทรงเดียวกับ PostGridCard
 function PostSkeletonCard({ showReporter = true }: { showReporter?: boolean }) {
   return (
     <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 flex flex-row sm:flex-col animate-pulse">
-      {/* รูป */}
       <div className="w-24 h-24 sm:w-full sm:h-auto sm:aspect-[4/3] flex-shrink-0 bg-gray-200" />
 
-      {/* เนื้อหา */}
       <div className="p-3 sm:p-5 flex-1 min-w-0 flex flex-col justify-center sm:justify-between gap-2 sm:gap-4">
         <div className="space-y-2">
           <div className="h-2.5 w-14 rounded-full bg-gray-200" />
@@ -18,7 +15,6 @@ function PostSkeletonCard({ showReporter = true }: { showReporter?: boolean }) {
           <div className="h-3 w-1/3 rounded-full bg-gray-200" />
         </div>
 
-        {/* แถวผู้ประกาศ + ปุ่ม (โชว์เฉพาะจอใหญ่ เหมือนการ์ดจริง) */}
         {showReporter && (
         <div className="hidden sm:flex items-center justify-between pt-3 border-t border-gray-100">
           <div className="flex items-center gap-2.5">

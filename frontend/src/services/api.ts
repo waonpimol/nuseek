@@ -176,8 +176,7 @@ export async function reportItem(formData: FormData) {
   });
 
   if (!response.ok) {
-    // ดึงข้อความ error ที่ backend ส่งมา (เช่น "กรุณากรอกเบอร์โทรศัพท์เป็นตัวเลขเท่านั้น")
-    // แทนที่จะทิ้งไปแล้วโชว์แค่ข้อความทั่วไป
+    // ใช้ข้อความ error ที่ backend ส่งมาถ้ามี
     let detail = "ส่งประกาศไม่สำเร็จ";
     try {
       const errBody = await response.json();

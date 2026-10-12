@@ -103,8 +103,7 @@ export default function ReportFound() {
 			});
 		} catch (err: any) {
 			console.error(err);
-			// ใช้ข้อความ error จริงจาก backend ถ้ามี (เช่น "กรุณากรอกเบอร์โทรศัพท์เป็นตัวเลขเท่านั้น")
-			// ไม่มีก็ fallback เป็นข้อความทั่วไป
+			// ใช้ข้อความ error จาก backend ถ้ามี
 			setResultModal({
 				success: false,
 				message: err?.message || "เกิดข้อผิดพลาด ไม่สามารถส่งประกาศได้ กรุณาลองใหม่อีกครั้ง",
@@ -117,14 +116,13 @@ export default function ReportFound() {
 	return (
 		<div className="min-h-screen bg-cream font-kanit">
 
-			{/* ================= Navbar ================= */}
+			{/* Navbar */}
 			<nav className="bg-white shadow-sm border-b border-gray-300 sticky top-0 z-50">
 				<div className="max-w-7xl mx-auto h-16 md:h-20 flex items-center justify-between px-4 md:px-8">
 					<div className="flex items-center gap-3">
 						<Logo />
 					</div>
 
-					{/* Menu (desktop) */}
 					<div className="hidden md:flex items-center gap-8 text-gray-700">
 						<Link to="/" className="flex items-center gap-2 hover:text-orange-500">
 							<Home size={20} />
@@ -140,7 +138,6 @@ export default function ReportFound() {
 						</Link>
 					</div>
 
-					{/* Right */}
 					<div className="flex items-center gap-2 md:gap-4">
 						<NotificationBell />
 
@@ -176,17 +173,15 @@ export default function ReportFound() {
 				)}
 			</nav>
 
-			{/* ================= Main Form Container ================= */}
+			{/* Main Form Container */}
 			<div style={styles.container}>
 				<div style={styles.wrapper}>
 
 					<form onSubmit={handleSubmit} style={styles.mainCard}>
 
-						{/* หัวข้อด้านบนสุด */}
 						<h1 style={styles.mainTitle}>ประกาศพบสิ่งของ</h1>
 						<p style={styles.mainSubtitle}>กรอกรายละเอียดเพื่อประกาศตามหาเจ้าของของชิ้นนี้</p>
 
-						{/* พรีวิวรูปที่แนบ (ถ้ามี) — แสดงเหนือช่องชื่อสิ่งของ */}
 						{images.length > 0 && (
 							<div style={styles.imagePreviewRow}>
 								{images.map((img, i) => (
@@ -205,7 +200,6 @@ export default function ReportFound() {
 							</div>
 						)}
 
-						{/* ช่องชื่อสิ่งของ (กรอกเองตรงๆ ไม่ให้ AI ต้องเดา/ตีความจากรายละเอียดอีกต่อไป) */}
 						<div style={styles.inputBlock}>
 							<input
 								type="text"
@@ -217,10 +211,8 @@ export default function ReportFound() {
 							/>
 						</div>
 
-						{/* ผู้ช่วย AI: ดูรูปแรกแล้วเสนอชื่อ/ยี่ห้อ/รุ่น (กดเอง ผู้ใช้ตัดสินใจเติมช่องชื่อเอง) */}
 						<AiIdentify file={images[0]?.file ?? null} onApply={setItemName} />
 
-						{/* กล่องข้อความขนาดใหญ่พิมพ์รายละเอียด */}
 						<div style={styles.inputBlock}>
 							<textarea
 								placeholder="ระบุสถานที่ที่พบ ลักษณะสิ่งของ สี หรือรายละเอียดสำคัญอื่นๆ..."
@@ -232,7 +224,6 @@ export default function ReportFound() {
 							/>
 						</div>
 
-						{/* ช่องเลือกสถานที่ที่พบ */}
 						<div style={styles.inputBlock}>
 							<input
 								type="text"
@@ -272,7 +263,6 @@ export default function ReportFound() {
 
 						<div style={styles.divider}></div>
 
-						{/* แถบเครื่องมือแนบรูป */}
 						<div style={styles.toolsContainer}>
 							<div style={styles.toolsRow}>
 								<div style={styles.toolItem} onClick={handleCameraClick}>
@@ -286,7 +276,6 @@ export default function ReportFound() {
 								</div>
 							</div>
 
-							{/* แจ้งว่าข้อมูลติดต่อดึงจากโปรไฟล์อัตโนมัติ ไม่ต้องกรอกซ้ำทุกครั้ง */}
 							<div style={styles.infoBanner}>
 								<Info size={14} style={{ color: '#0EA5E9', flexShrink: 0, marginTop: '1px' }} />
 								<span>
@@ -301,12 +290,10 @@ export default function ReportFound() {
 
 						<div style={styles.divider}></div>
 
-						{/* ปุ่มส่งฟอร์มประกาศ */}
 						<button type="submit" style={{ ...styles.submitBtn, ...(loading ? styles.submitBtnLoading : {}) }} disabled={loading}>
 							{loading ? (<><Spinner size={16} />กำลังบันทึก...</>) : 'ส่งข้อมูลเพื่อประกาศตามหาเจ้าของ'}
 						</button>
 
-						{/* หมายเหตุแจ้งเตือนผู้ใช้งานตัวเล็กด้านล่าง */}
 						<div style={styles.noteBox}>
 							<p style={styles.noteItem}>* กรุณาแนบรูปภาพสิ่งของที่พบ</p>
 							<p style={styles.noteItem}>* กรุณาระบุรายละเอียดลักษณะเด่นชัดเจน</p>
@@ -315,10 +302,8 @@ export default function ReportFound() {
 
 					</form>
 
-					{/* ข้อความชี้แจงด้านล่างการ์ด */}
 					<p style={styles.aiFooterText}>ระบบจะทำการวิเคราะห์ข้อมูลและจับคู่ส่งสัญญานไปหาผู้ที่ลงประกาศของหายทันที</p>
 
-					{/* ปุ่มกดยกเลิก */}
 					<Link to="/ " style={styles.backLinkBtn}>ยกเลิก</Link>
 
 				</div>

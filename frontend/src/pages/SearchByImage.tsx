@@ -80,7 +80,7 @@ export default function SearchByImage() {
   return (
     <div className="min-h-screen bg-cream font-kanit">
 
-      {/* ================= Navbar ================= */}
+      {/* Navbar */}
       <nav className="bg-white shadow-sm border-b border-gray-300">
         <div className="max-w-7xl mx-auto h-16 md:h-20 flex items-center justify-between px-4 md:px-8">
           <div className="flex items-center gap-3">
@@ -137,7 +137,7 @@ export default function SearchByImage() {
         )}
       </nav>
 
-      {/* ================= Main Container ================= */}
+      {/* Main Container */}
       <div className="max-w-5xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-8 pt-5 sm:pt-10">
 
         <div className="text-center space-y-1 sm:space-y-2">
@@ -149,7 +149,6 @@ export default function SearchByImage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-6 items-start">
 
-          {/* ฝั่งซ้าย: กล่องอัปโหลดรูปภาพ */}
           <div className="lg:col-span-8 bg-white rounded-2xl p-3 sm:p-6 shadow-sm border border-gray-100 min-h-[280px] sm:min-h-[400px] flex flex-col justify-center items-center">
 
             {!previewUrl ? (
@@ -222,7 +221,6 @@ export default function SearchByImage() {
 
           </div>
 
-          {/* ฝั่งขวา: คำแนะนำการใช้งาน */}
           <div className="lg:col-span-4 bg-white rounded-2xl p-3 sm:p-6 shadow-sm border border-gray-100 space-y-3 sm:space-y-4">
             <div className="flex items-start gap-2.5 sm:gap-3">
               <div className="p-1.5 sm:p-2 bg-amber-50 text-amber-600 rounded-lg mt-0.5">
@@ -239,7 +237,7 @@ export default function SearchByImage() {
 
         </div>
 
-        {/* ================= ผลการค้นหา ================= */}
+        {/* ผลการค้นหา */}
         {error && (
           <ErrorState title={error} description="ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง" className="bg-white rounded-2xl border border-gray-100">
             <button onClick={handleStartSearch} className="inline-flex items-center justify-center bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-xs sm:text-sm rounded-xl font-semibold transition">ลองใหม่</button>

@@ -57,7 +57,6 @@ function ImageCarousel({ post, score, matched }: { post: any; score?: number; ma
 				))}
 			</div>
 
-			{/* ป้ายประเภททับรูป: พื้นสีทึบ ตัวอักษรขาว (หาย = แดง / พบ = ฟ้า) */}
 			<div className={`absolute top-2.5 left-2.5 sm:top-3 sm:left-3 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full flex items-center gap-1.5 sm:gap-2 shadow-sm select-none pointer-events-none ${matched ? "bg-green-500" : post.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
 				<span className="text-[11px] sm:text-xs font-semibold tracking-wide text-white">
 					{matched ? "สำเร็จ" : post.type === "lost" ? "หาย" : "พบ"}
@@ -136,7 +135,6 @@ export default function PostCard({
 				if (e.key === "Enter") navigate(`/postdetail/${post.id}`);
 			}}
 		>
-			{/* มือถือ: รูปเล็กด้านซ้ายเป็นแถว (เหมือนเดิม) */}
 			<div className="sm:hidden relative w-[84px] self-stretch min-h-[84px] flex-shrink-0 overflow-hidden rounded-xl bg-gray-100">
 				<img
 					src={post.image_url || FALLBACK_IMAGE}
@@ -148,25 +146,20 @@ export default function PostCard({
 				/>
 			</div>
 
-			{/* จอใหญ่: สไลด์รูปเลื่อนดูได้ */}
 			<div className="hidden sm:block">
 				<ImageCarousel post={post} score={score} matched={matched} />
 			</div>
 
-			{/* ส่วนเนื้อหาในโพสต์ */}
 			<div className="p-0 pr-1 sm:p-4 flex-1 flex flex-col justify-center sm:justify-start gap-1.5 sm:gap-3 min-w-0">
-				{/* ขีดสีส้มเล็กๆ เหนือชื่อ (จอใหญ่) */}
 				<div className="hidden sm:block w-8 h-1 rounded-full bg-orange-500 -mb-1.5" />
 				<div className="flex sm:block items-center gap-1.5 min-w-0 flex-wrap sm:flex-nowrap">
 					<h3 className="text-base font-extrabold tracking-tight text-gray-900 leading-snug line-clamp-1 min-w-0 sm:text-lg sm:leading-snug sm:min-h-[3.1rem] sm:line-clamp-2 group-hover:text-orange-500 transition">
 						{post.title || "ไม่ระบุชื่อสิ่งของ"}
 					</h3>
-					{/* ป้ายประเภทอยู่ข้างหลังชื่อ โชว์เฉพาะมือถือ (จอใหญ่ใช้ป้ายทับรูป) */}
 					<span className={`sm:hidden flex-shrink-0 px-2 py-px rounded-full text-[11px] font-semibold text-white ${matched ? "bg-green-500" : post.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
 						{matched ? "สำเร็จ" : post.type === "lost" ? "หาย" : "พบ"}
 					</span>
 				</div>
-				{/* มือถือ: ขีดสีส้มอยู่ใต้ชื่อ */}
 				<div className="sm:hidden w-6 h-1 rounded-full bg-orange-500 -mt-0.5" />
 
 				<div className="space-y-1 sm:space-y-1.5 sm:pt-2.5 sm:border-t sm:border-gray-100 text-xs text-gray-600 sm:text-gray-500 sm:mt-auto">
@@ -184,7 +177,6 @@ export default function PostCard({
 					</div>
 				</div>
 
-				{/* แถวผู้ประกาศ: โชว์เฉพาะจอใหญ่ (การ์ดทั้งใบกดได้อยู่แล้วบนมือถือ) */}
 				{showReporter && (
 				<div className="hidden sm:flex items-center pt-3 border-t border-gray-100 mt-auto">
 					<div className="flex items-center gap-2.5">

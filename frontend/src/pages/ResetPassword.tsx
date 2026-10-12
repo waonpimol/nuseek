@@ -131,7 +131,6 @@ export default function ResetPassword() {
 
         <form onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-5">
 
-          {/* รหัสผ่านใหม่ */}
           <div>
             <label className="block mb-1.5 sm:mb-2 text-sm sm:text-base text-gray-600">รหัสผ่านใหม่</label>
             <div className="relative">
@@ -169,7 +168,6 @@ export default function ResetPassword() {
             )}
           </div>
 
-          {/* ยืนยันรหัสผ่านใหม่ */}
           <div>
             <label className="block mb-1.5 sm:mb-2 text-sm sm:text-base text-gray-600">ยืนยันรหัสผ่านใหม่</label>
             <div className="relative">

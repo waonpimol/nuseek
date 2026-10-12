@@ -51,7 +51,6 @@ export default function Login() {
   return (
     <div className="relative overflow-hidden min-h-screen bg-white flex items-center justify-center px-3 sm:px-4 py-6 sm:py-10">
 
-      {/* พื้นหลัง: แถบโค้งสีส้มอ่อนมุมขวาบน (2 ชั้น ให้ดูมีมิติ) */}
       <svg
         aria-hidden="true"
         viewBox="0 0 400 240"
@@ -68,7 +67,6 @@ export default function Login() {
         <path d="M170,0 C195,55 270,48 322,92 C358,122 384,128 400,124 L400,0 Z" fill="url(#loginSwooshA)" />
       </svg>
 
-      {/* ปุ่มย้อนกลับ */}
       <button
         type="button"
         onClick={handleBack}
@@ -80,14 +78,12 @@ export default function Login() {
 
       <div className="relative z-10 w-full max-w-sm bg-white rounded-3xl shadow-xl p-4 sm:p-6">
 
-        {/* Icon */}
         <div className="flex justify-center">
           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#FF6B00] rounded-2xl flex items-center justify-center">
             <LogIn className="text-white w-5 h-5 sm:w-6 sm:h-6" />
           </div>
         </div>
 
-        {/* Title */}
         <h1 className="text-center text-lg sm:text-2xl font-semibold mt-2.5 sm:mt-4">
           <span className="text-[#FF6B00]">เข้า</span>
           <span className="text-gray-900">สู่ระบบ</span>
@@ -97,10 +93,8 @@ export default function Login() {
           ยินดีต้อนรับกลับสู่ NUSeek
         </p>
 
-        {/* Form */}
         <form onSubmit={handleLogin} className="space-y-3 sm:space-y-4">
 
-          {/* Email */}
           <div>
             <label className="block mb-1 sm:mb-1.5 text-xs sm:text-sm text-gray-600">อีเมล</label>
             <div className="relative">
@@ -117,7 +111,6 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Password */}
           <div>
             <label className="block mb-1 sm:mb-1.5 text-xs sm:text-sm text-gray-600">รหัสผ่าน</label>
             <div className="relative">
@@ -132,7 +125,6 @@ export default function Login() {
                 className="w-full rounded-xl border border-gray-300 py-2 sm:py-2.5 pl-10 sm:pl-11 pr-10 sm:pr-11 text-sm outline-none focus:ring-2 focus:ring-[#FF6B00] disabled:bg-gray-100"
               />
 
-              {/* ปุ่มเปิด-ปิดตา */}
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
@@ -152,7 +144,6 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Button */}
           <button
             type="submit"
             disabled={loading}
@@ -163,14 +154,12 @@ export default function Login() {
 
         </form>
 
-        {/* Divider */}
         <div className="flex items-center my-4 sm:my-6">
           <div className="flex-1 border-t"></div>
           <span className="mx-4 text-gray-400 text-xs sm:text-sm">หรือ</span>
           <div className="flex-1 border-t"></div>
         </div>
 
-        {/* Footer */}
         <p className="text-center text-gray-600 text-xs sm:text-sm">
           ยังไม่มีบัญชี?
           <Link

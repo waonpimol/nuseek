@@ -32,7 +32,6 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
-  // แจ้งผลลัพธ์ต่างๆ ด้วย modal ในแอปเอง แทน alert() ของเบราว์เซอร์ ที่โชว์ "localhost บอกว่า..."
   const [resultModal, setResultModal] = useState<{ success: boolean; message: string; goToLogin?: boolean } | null>(null);
 
   const passwordChecks = getPasswordChecks(password);
@@ -60,7 +59,7 @@ export default function Signup() {
     setLoading(true);
 
     try {
-      // 1. สมัครบัญชีเข้าระบบ Authentication ของ Supabase
+      // สมัครบัญชีใน Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email,
         password: password,
@@ -73,7 +72,7 @@ export default function Signup() {
         const firstName = nameParts[0] || "";
         const lastName = nameParts.slice(1).join(" ") || "";
 
-        // 2. นำข้อมูลโปรไฟล์ไปบันทึกเพิ่มลงตาราง public.users ที่สร้างไว้
+        // แล้วบันทึกโปรไฟล์ลงตาราง public.users
         const { error: profileError } = await supabase
           .from("users")
           .insert([
@@ -100,7 +99,6 @@ export default function Signup() {
   return (
     <div className="relative overflow-hidden min-h-screen bg-white flex items-center justify-center px-3 sm:px-4 py-6 sm:py-10">
 
-      {/* พื้นหลัง (ธีมเดียวกับหน้า Login แต่คนละลาย): คลื่นพีชบางๆ ชั้นเดียวที่ชายล่างจอ แค่แซมให้ไม่โล่ง */}
       <svg
         aria-hidden="true"
         viewBox="0 0 400 200"
@@ -116,7 +114,6 @@ export default function Signup() {
         <path d="M0,125 C90,85 170,155 260,122 C330,98 370,82 400,94 L400,200 L0,200 Z" fill="url(#signupWaveA)" />
       </svg>
 
-      {/* ปุ่มย้อนกลับ */}
       <button
         type="button"
         onClick={handleBack}
@@ -128,7 +125,6 @@ export default function Signup() {
 
       <div className="relative z-10 w-full max-w-sm bg-white rounded-3xl shadow-xl p-4 sm:p-6">
 
-        {/* Icon */}
         <div className="flex justify-center">
           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-[#FF6B00] flex items-center justify-center">
             <UserPlus className="text-white w-5 h-5 sm:w-6 sm:h-6" />
@@ -146,7 +142,6 @@ export default function Signup() {
 
         <form onSubmit={handleSignup} className="space-y-3 sm:space-y-4">
 
-          {/* Name */}
           <div>
             <label className="block mb-1 sm:mb-1.5 text-xs sm:text-sm text-gray-600">ชื่อ-นามสกุล</label>
             <div className="relative">
@@ -162,7 +157,6 @@ export default function Signup() {
             </div>
           </div>
 
-          {/* Email */}
           <div>
             <label className="block mb-1 sm:mb-1.5 text-xs sm:text-sm text-gray-600">อีเมล</label>
             <div className="relative">
@@ -179,7 +173,6 @@ export default function Signup() {
             </div>
           </div>
 
-          {/* Password */}
           <div>
             <label className="block mb-1 sm:mb-1.5 text-xs sm:text-sm text-gray-600">รหัสผ่าน</label>
             <div className="relative">
@@ -205,7 +198,6 @@ export default function Signup() {
 
             </div>
 
-            {/* Checklist ความยากของรหัสผ่าน แสดงแบบ real-time หลังผู้ใช้เริ่มพิมพ์/โฟกัสช่องนี้ */}
             {(passwordFocused || password.length > 0) && (
               <ul className="mt-2 sm:mt-2.5 space-y-0.5 sm:space-y-1">
                 {passwordChecks.map((check) => (
@@ -221,7 +213,6 @@ export default function Signup() {
             )}
           </div>
 
-          {/* Confirm Password */}
           <div>
             <label className="block mb-1 sm:mb-1.5 text-xs sm:text-sm text-gray-600">ยืนยันรหัสผ่าน</label>
             <div className="relative">
@@ -244,7 +235,6 @@ export default function Signup() {
             </div>
           </div>
 
-          {/* Button */}
           <button
             type="submit"
             disabled={loading}
@@ -255,7 +245,6 @@ export default function Signup() {
 
         </form>
 
-        {/* Divider */}
         <div className="flex items-center my-4 sm:my-6">
           <div className="flex-1 border-t"></div>
           <span className="mx-4 text-gray-400 text-xs sm:text-sm">หรือ</span>

@@ -54,7 +54,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-cream antialiased">
 
-      {/* ================= Navbar ================= */}
+      {/* Navbar */}
 
       <nav className="bg-white shadow-sm border-b border-gray-300">
         <div className="max-w-7xl mx-auto h-16 md:h-20 flex items-center justify-between px-4 md:px-8">
@@ -64,7 +64,6 @@ export default function HomePage() {
             <Logo />
           </div>
 
-          {/* Menu (desktop) */}
 
           <div className="hidden md:flex items-center gap-8 text-gray-700">
 
@@ -85,7 +84,6 @@ export default function HomePage() {
 
           </div>
 
-          {/* Right */}
 
           <div className="flex items-center gap-2 md:gap-4">
 
@@ -93,7 +91,6 @@ export default function HomePage() {
 
             <Link to="/profile" className="hover:text-orange-500 text-gray-600" ><User /></Link>
 
-            {/* ปุ่มแฮมเบอร์เกอร์ (มือถือเท่านั้น) */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-full text-gray-600 hover:text-orange-500 hover:bg-gray-100 transition"
@@ -106,7 +103,6 @@ export default function HomePage() {
 
         </div>
 
-        {/* Menu (mobile, ยุบ/ขยาย) */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-gray-100 bg-white px-4 py-2 flex flex-col">
             <Link
@@ -137,7 +133,7 @@ export default function HomePage() {
         )}
       </nav>
 
-      {/* ================= Hero ================= */}
+      {/* Hero */}
 
       <section className="flex flex-col items-center justify-center mt-8 sm:mt-16 px-4 text-center">
 
@@ -155,7 +151,6 @@ export default function HomePage() {
           ถ่ายรูปหรือบอกลักษณะ แล้วให้ AI ช่วยจับคู่กับของที่มีคนพบ
         </p>
 
-        {/* Buttons: แจ้งของหาย / แจ้งพบของ / ค้นหาด้วยรูปภาพ อยู่แถวเดียวกัน */}
 
         <div className="flex flex-row items-stretch justify-center gap-2 sm:gap-4 mt-5 sm:mt-8 w-full max-w-[340px] sm:max-w-none sm:w-auto">
 
@@ -182,7 +177,6 @@ export default function HomePage() {
 
         </div>
 
-        {/* Quick search */}
 
         <form
           onSubmit={(e) => { e.preventDefault(); goSearch(searchText); }}
@@ -215,7 +209,6 @@ export default function HomePage() {
           </button>
         </form>
 
-        {/* Category chips */}
 
         <div className="mt-3 w-full max-w-xl flex flex-wrap justify-center gap-2">
           {QUICK_CATEGORIES.map(({ label, query, Icon }) => (
@@ -233,11 +226,11 @@ export default function HomePage() {
 
       </section>
 
-      {/* ================= Recent posts ================= */}
+      {/* Recent posts */}
 
       <RecentPosts />
 
-      {/* ================= How it works ================= */}
+      {/* How it works */}
 
       <section className="mt-12 sm:mt-16 bg-white/70 border-y border-gray-200 py-8 sm:py-10 px-4">
         <h3 className="text-base sm:text-xl font-bold text-gray-900 text-center mb-5 sm:mb-6">ใช้งานอย่างไร</h3>
@@ -254,7 +247,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ================= Footer ================= */}
+      {/* Footer */}
 
       <footer className="px-4 py-6 text-center text-xs sm:text-sm text-gray-500">
         <div className="font-semibold text-gray-700">NUSeek · มหาวิทยาลัยนเรศวร</div>

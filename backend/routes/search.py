@@ -11,22 +11,20 @@ from nuseek.tools.verification_agent import describe_image, verify_candidates
 
 router = APIRouter()
 
-# threshold "กว้าง" ไว้ดึง candidate เข้ามาพิจารณา (ต่ำกว่านี้ไม่เอาเข้ามาเลย ไม่เกี่ยวข้องแน่ๆ)
+# threshold กว้าง ๆ ไว้ดึง candidate เข้ามาพิจารณา
 RECALL_THRESHOLD = 0.3
 # score ถึงระดับนี้ถือว่าเชื่อถือได้เลย โชว์ตรงๆ ไม่ต้องพึ่ง agent ตรวจซ้ำ
 HIGH_CONFIDENCE_THRESHOLD = 0.7
-# ผลลัพธ์สุดท้ายที่ยืนยันว่าตรงแล้ว อาจมีหลายอันพร้อมกัน (เช่น มีคนโพสต์ของแบบเดียวกันไว้หลายโพสต์)
-# โชว์ให้ผู้ใช้แค่ที่ดีที่สุด 5 อันดับแรกพอ ไม่ต้องเทกองมาให้ดูทั้งหมด
 DISPLAY_TOP_K = 5
-# candidate กลุ่ม score ต่ำ ต้องผ่าน agent และ agent ต้องระบุรายละเอียดที่ตรงกันจริงอย่างน้อยเท่านี้
-# (ไม่นับชนิดของสิ่งของ) ไม่ใช่เชื่อแค่ is_match=true — กันเคสที่ตรงกันแค่คำว่า "หูฟัง" คำเดียว
+# candidate score ต่ำ ต้องให้ agent ระบุรายละเอียดที่ตรงกันอย่างน้อยเท่านี้ (ไม่นับชนิดของสิ่งของ)
+# กันเคสที่ตรงกันแค่คำว่า "หูฟัง" คำเดียว
 MIN_MATCHED_DETAILS = 2
 
 
 @router.post("/search-by-image")
 async def search_by_image(
     image: UploadFile = File(...),
-    user_id: str = Form(""),  # ถ้า login อยู่จะส่งมา ใช้ซ่อนโพสต์ของตัวเองออกจากผลค้นหา (ไม่ login ก็ค้นหาได้ปกติ)
+    user_id: str = Form(""),  # ใช้ซ่อนโพสต์ของตัวเองออกจากผลค้นหา (ไม่ login ก็ได้)
     background_tasks: BackgroundTasks = None,
 ):
     """
@@ -59,15 +57,12 @@ async def search_by_image(
         shutil.copyfileobj(image.file, buffer)
 
     try:
-        # ให้ Gemini ดูรูปแล้วบรรยายเฉพาะสิ่งของหลักเป็นไทย (fallback เป็น BLIP + แปล ถ้า Gemini ล้ม)
         described = describe_image(tmp_path)
         caption_en = described.get("en", "")
         caption_th = described.get("th", "")
 
         embedding = embed_text(caption_th or caption_en)
 
-        # recall กว้าง ๆ ก่อน (score >= 0.3 ทั้งหมด)
-        # ไม่เอาโพสต์ของผู้ค้นหาเองมาเป็นผลลัพธ์ (ไม่มีประโยชน์ และเป็นโพสต์ที่กดอ้างสิทธิ์ตัวเองไม่ได้อยู่แล้ว)
         own_item_ids = get_item_ids_by_user(user_id) if user_id else []
         candidates = search_by_embedding(
             embedding, top_k=10, threshold=RECALL_THRESHOLD, exclude_item_ids=own_item_ids
@@ -88,8 +83,7 @@ async def search_by_image(
         results.sort(key=lambda r: r.get("score", 0), reverse=True)
         results = results[:DISPLAY_TOP_K]
 
-        # เก็บเฉพาะ candidate ที่ agent ตัดสินใจจริง (score < 0.7) ไม่เก็บกลุ่ม high_confidence
-        # เพราะเหตุผลที่โชว์ของกลุ่มนั้นตายตัวอยู่แล้ว (score >= 0.7) ไม่มีอะไรต้อง debug
+        # log เฉพาะ candidate ที่ agent ตัดสินใจ กลุ่ม high_confidence ไม่มีอะไรต้อง debug
         log_candidates = [
             {
                 "id": c.get("id"), "title": c.get("title"), "type": c.get("type"),
@@ -104,9 +98,7 @@ async def search_by_image(
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
-    # log แบบ background task — ไม่ await ตรงนี้ กันไม่ให้ insert ไปหน่วงเวลาตอบกลับผู้ใช้
-    # เก็บเฉพาะตอนที่ agent ถูกเรียกใช้จริง (มี candidate score < 0.7 อย่างน้อย 1 ตัว)
-    # ไม่ว่าผลสุดท้ายจะถูกโชว์หรือไม่ก็ตาม — เคสที่ agent ไม่เกี่ยวข้องเลยไม่มีอะไรต้อง debug ไม่ต้องเก็บ
+    # log เป็น background task ไม่ให้หน่วงการตอบกลับ และเก็บเฉพาะเมื่อ agent ถูกเรียกใช้
     if background_tasks is not None and low_confidence:
         background_tasks.add_task(log_search_query, caption_en, caption_th, log_candidates, len(results))
 

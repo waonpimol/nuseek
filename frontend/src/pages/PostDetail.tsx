@@ -37,7 +37,7 @@ import SimilarPosts from '../components/SimilarPosts';
 
 const FALLBACK_IMAGE = getPlaceholderImage(600, 400);
 
-// รวมช่องทางติดต่อทั้งหมดจากโปรไฟล์มาแสดงเป็นแถวๆ (โชว์เฉพาะช่องที่มีค่าจริง ไม่มีก็ไม่โชว์)
+// ช่องทางติดต่อจากโปรไฟล์ โชว์เฉพาะช่องที่มีค่า
 function ContactList({
   phone,
   lineId,
@@ -113,7 +113,6 @@ export default function PostDetail() {
   const [activeImage, setActiveImage] = useState(0);
   const galleryRef = useRef<HTMLDivElement>(null);
   useEffect(() => { setActiveImage(0); }, [id]);
-  // แก้ไข/ลบโพสต์ของตัวเอง
   const [showEditModal, setShowEditModal] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -136,10 +135,8 @@ export default function PostDetail() {
     };
   }, [ownerMenuOpen]);
 
-  // แจ้งผลลัพธ์การกระทำต่างๆ ในหน้านี้ (ยืนยัน/ปฏิเสธ/ปิดเคส) ด้วย modal ในแอปเอง
-  // แทน alert() ของเบราว์เซอร์ ที่จะโชว์ข้อความ "localhost บอกว่า..." ไม่สวยและดูไม่น่าเชื่อถือ
   const [resultModal, setResultModal] = useState<{ success: boolean; title: string; message: string; goToAllPosts?: boolean } | null>(null);
-  // modal ยืนยัน "ไม่ใช่ของฉัน" ก่อนยิง reject จริง (แทน window.confirm() ที่โชว์ "localhost บอกว่า..." เหมือนกัน)
+  // modal ยืนยัน "ไม่ใช่ของฉัน" ก่อน reject จริง
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
 
   useEffect(() => {
@@ -175,26 +172,21 @@ export default function PostDetail() {
     return () => { cancelled = true; };
   }, [id]);
 
-  // ถ้าไอเทมนี้มีแมทช์จากระบบ AI auto-match ทำงานอยู่แล้ว (ไม่ว่าจะสเตจ 1 หรือ 2) ให้ซ่อนปุ่ม/กล่อง
-  // ของแทร็ก claim (ค้นหาด้วยรูป) ทั้งหมดไปเลย กันไม่ให้โผล่มาซ้อนกันสองกล่องแล้วงงว่าต้องกดปุ่มไหน
-  // (เคสนี้เกิดได้จริง ถ้ามีคนเจอโพสต์เดียวกันทั้งผ่านการค้นหาด้วยรูปและผ่านระบบแมทช์อัตโนมัติพร้อมกัน)
+  // ถ้ามีแมทช์จาก AI อยู่แล้ว ซ่อนปุ่ม/กล่องของแทร็ก claim ทั้งหมด กันสองกล่องซ้อนกัน
   const hasActiveMatchTrack = !!post?.pending_match_id || !!post?.confirmed_match_id;
 
-  // ปุ่มยืนยันโชว์ให้ "เจ้าของฝั่งของหาย" ในแมทช์นี้เท่านั้น ไม่ว่าจะกำลังดูโพสต์ไหนอยู่ก็ตาม
-  // (ปกติจะมาจากการกดแจ้งเตือน แล้วเด้งมาที่โพสต์ "ของที่พบ" ของอีกฝั่ง ซึ่งไม่ใช่โพสต์ของเราเอง)
+  // โชว์ให้เจ้าของฝั่งของหายเท่านั้น (ปกติมาจากแจ้งเตือน ซึ่งพามาที่โพสต์ "ของที่พบ" ของอีกฝั่ง)
   const showConfirmButton =
     !!currentUserId &&
     !!post?.pending_match_id &&
     post?.pending_match_lost_owner_id === currentUserId;
 
-  // สเตจ 1 เท่านั้น: แค่ยืนยัน "ตัวตน" ว่าใช่ของจริง ยังไม่ปิดเคส ไอเทมยังคง active ตามปกติ
-  // รอสเตจ 2 (ปุ่ม "ได้รับของแล้ว") อีกทีถึงจะปิดเคสจริง
+  // สเตจ 1: แค่ยืนยันว่าใช่ของจริง ยังไม่ปิดเคส รอสเตจ 2 ("ได้รับของแล้ว")
   const handleConfirmOnPost = async () => {
     if (!post?.pending_match_id) return;
     setConfirmingPost(true);
     try {
       await confirmMatch(post.pending_match_id);
-      // โหลดโพสต์ใหม่ให้ state อัปเดตเป็นสเตจ 2 ทันที ไม่ต้องรีเฟรชเอง
       const refreshed = await getItem(id as string);
       setPost(refreshed);
       setResultModal({
@@ -210,7 +202,7 @@ export default function PostDetail() {
     }
   };
 
-  // ปุ่ม "ไม่ใช่ของฉัน" — ยกเลิกแมทช์นี้ทิ้ง เผื่อ AI จับคู่ผิด ของทั้งคู่ยัง active ต่อไปตามปกติ
+  // ยกเลิกแมทช์เผื่อ AI จับคู่ผิด ของทั้งคู่ยัง active ต่อ
   const handleRejectOnPost = async () => {
     if (!post?.pending_match_id) return;
     setRejectingPost(true);
@@ -225,12 +217,10 @@ export default function PostDetail() {
     }
   };
 
-  // ปุ่มอ้างสิทธิ์/แจ้งว่าเจอของ — ใช้ตอนผู้ใช้เจอโพสต์เองผ่านการค้นหาด้วยรูปหรือไล่ดูหน้าประกาศ
-  // (ไม่ผ่านระบบแมทช์อัตโนมัติ) ใช้ได้ทั้งสองทิศทาง:
+  // ปุ่มอ้างสิทธิ์ (ไม่ผ่านแมทช์อัตโนมัติ) ใช้ได้ทั้งสองทิศทาง:
   //   - โพสต์ "ของที่พบ" → ปุ่ม "ใช่ของฉัน" (คนที่ทำของหายกดอ้างว่าเป็นของตัวเอง)
   //   - โพสต์ "ของหาย"   → ปุ่ม "เจอของชิ้นนี้แล้ว" (คนที่เจอของกดแจ้งเจ้าของ)
-  // โชว์ให้ทุกโพสต์ที่ยังไม่จบเคส, ไม่ใช่โพสต์ของตัวเอง, ยังไม่มีใครอ้างสิทธิ์ค้างอยู่
-  // และยังไม่มีแมทช์จากระบบ AI ทำงานอยู่แล้ว (ดู hasActiveMatchTrack ด้านบน)
+  // โชว์เมื่อโพสต์ยังไม่จบเคส, ไม่ใช่ของตัวเอง, ไม่มีคำอ้างสิทธิ์ค้าง และไม่มีแมทช์จาก AI
   const showClaimButton =
     !!currentUserId &&
     post?.status !== "matched" &&
@@ -260,16 +250,14 @@ export default function PostDetail() {
     }
   };
 
-  // ปุ่ม "ได้รับของแล้ว/คืนของแล้ว" — กดได้ทั้ง 2 ฝ่าย (เจ้าของโพสต์ และผู้อ้างสิทธิ์)
-  // ใครกดก่อนก็ปิดเคสได้เลย ไม่ต้องรอให้อีกฝั่งกดด้วย (แค่ยืนยันว่ามีการส่งคืนของกันจริงแล้ว)
-  // กดแล้วถึงจะปิดเคสจริง: เปลี่ยนเป็น matched, หายจากหน้าประกาศทั่วไป, ไปนับใน KPI หน้าโปรไฟล์แทน
+  // สเตจ 2 ของแทร็ก claim: ฝ่ายใดกดก่อนก็ปิดเคสได้เลย
   const isPostOwner = !!currentUserId && post?.user_id === currentUserId;
   const isClaimant = !!currentUserId && post?.pending_claim_claimant_id === currentUserId;
   const showConfirmReceiptButton = !!post?.pending_claim_id && (isPostOwner || isClaimant) && !hasActiveMatchTrack;
 
-  // ทิศทางการส่งมอบของสลับกันตามประเภทโพสต์:
-  //   - โพสต์ "ของที่พบ" → เจ้าของโพสต์ (คนเจอของ) เป็นฝ่ายส่งคืน / ผู้อ้างสิทธิ์ (คนทำของหาย) เป็นฝ่ายรับคืน
-  //   - โพสต์ "ของหาย"   → เจ้าของโพสต์ (คนทำของหาย) เป็นฝ่ายรับคืน / ผู้อ้างสิทธิ์ (คนเจอของ) เป็นฝ่ายส่งคืน
+  // ทิศทางการส่งมอบสลับตามประเภทโพสต์:
+  //   - ของที่พบ → เจ้าของโพสต์ส่งคืน / ผู้อ้างสิทธิ์รับคืน
+  //   - ของหาย   → เจ้าของโพสต์รับคืน / ผู้อ้างสิทธิ์ส่งคืน
   const postOwnerReceives = post?.type === "lost";
   const isGiver = postOwnerReceives ? isClaimant : isPostOwner;
 
@@ -296,8 +284,7 @@ export default function PostDetail() {
     }
   };
 
-  // ปุ่ม "ได้รับของแล้ว/คืนของแล้ว" ฝั่งแทร็ก AI auto-match (สเตจ 2 ของ matches ไม่ใช่ claims)
-  // โชว์ให้ทั้งเจ้าของของหายและผู้แจ้งพบ หลังจากเจ้าของของหายกด "ใช่ของฉัน" ยืนยันตัวตนแล้ว (สเตจ 1)
+  // สเตจ 2 ของแทร็ก AI match: โชว์ให้ทั้งสองฝ่ายหลังเจ้าของของหายยืนยันแล้ว
   const isMatchLostOwner = !!currentUserId && post?.confirmed_match_lost_owner_id === currentUserId;
   const isMatchFoundOwner = !!currentUserId && post?.confirmed_match_found_owner_id === currentUserId;
   const showMatchReceiptButton = !!post?.confirmed_match_id && (isMatchLostOwner || isMatchFoundOwner);
@@ -316,7 +303,6 @@ export default function PostDetail() {
     }
   };
 
-  // รูปทั้งหมดของโพสต์ (โพสต์เก่าที่มีรูปเดียวได้ image_urls ที่มีรูปเดียวจาก backend)
   const galleryImages: string[] = post?.image_urls?.length ? post.image_urls : post?.image_url ? [post.image_url] : [];
   const goToImage = (i: number) => {
     const el = galleryRef.current;
@@ -325,8 +311,7 @@ export default function PostDetail() {
     el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' });
   };
 
-  // เครื่องมือของเจ้าของโพสต์: แก้ไข/ลบ (ลบ = ลบออกจากระบบจริง ไม่เก็บในประวัติ) — ใช้ได้เฉพาะโพสต์ที่ยังไม่จบเคส
-  // แก้ไขไม่ได้ระหว่างกำลังส่งมอบของ (แมทช์ confirmed หรือมีคำอ้างสิทธิ์ค้างอยู่) แต่ลบได้ (อีกฝั่งจะได้รับแจ้ง)
+  // แก้ไข/ลบได้เฉพาะโพสต์ที่ยังไม่จบเคส ระหว่างส่งมอบของแก้ไขไม่ได้แต่ลบได้ (อีกฝั่งจะได้รับแจ้ง)
   const showOwnerTools = isPostOwner && post?.status !== "matched";
   const canEditPost = showOwnerTools && !post?.confirmed_match_id && !post?.pending_claim_id;
 
@@ -374,7 +359,7 @@ export default function PostDetail() {
       style={{ backgroundImage: "linear-gradient(180deg, rgba(251,146,60,0.12) 0%, rgba(251,146,60,0) 340px)", backgroundRepeat: "no-repeat" }}
     >
 
-      {/* ================= Navbar ================= */}
+      {/* Navbar */}
       <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto h-16 md:h-20 flex items-center justify-between px-4 md:px-8">
           <div className="flex items-center gap-3">
@@ -430,7 +415,7 @@ export default function PostDetail() {
         )}
       </nav>
 
-      {/* ================= Main Content ================= */}
+      {/* Main Content */}
       <div style={styles.container}>
         <div style={styles.wrapper}>
 
@@ -452,7 +437,6 @@ export default function PostDetail() {
               {(() => {
                 return (
                   <>
-                    {/* รูปภาพเต็มขอบการ์ด: หลายรูปเลื่อนดูได้ (ปัดบนมือถือ / กดลูกศรบนจอใหญ่) จอใหญ่โชว์รูปเต็มตามสัดส่วนจริง */}
                     <div className="relative w-full bg-white lg:h-full">
                       <div
                         ref={galleryRef}
@@ -520,7 +504,6 @@ export default function PostDetail() {
 
               <div style={styles.cardBody}>
 
-              {/* ชื่อสิ่งของ + ขีดสีส้ม + เมนู ⋯ (เจ้าของโพสต์) */}
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
@@ -573,7 +556,6 @@ export default function PostDetail() {
                 )}
               </div>
 
-              {/* ข้อมูลหลัก: สถานที่ + เวลา เป็นการ์ดไอคอน */}
               <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                 <div className="flex items-center gap-2.5 rounded-2xl bg-orange-50 px-3 py-2.5 min-w-0">
                   <span className="w-9 h-9 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center flex-shrink-0">
@@ -599,7 +581,6 @@ export default function PostDetail() {
                 </div>
               </div>
 
-              {/* กล่องแจ้งว่ามีแมทช์รออยู่ + ปุ่มยืนยัน/ไม่ใช่ของฉัน (โชว์เฉพาะเจ้าของของหายเอง) */}
               {showConfirmButton && !rejected && (
                 <div style={styles.matchBox}>
                   <div style={styles.matchBoxText}>
@@ -634,8 +615,6 @@ export default function PostDetail() {
                 </div>
               )}
 
-              {/* ปุ่ม "ได้รับของแล้ว/คืนของแล้ว" ฝั่งแทร็ก AI auto-match — โชว์ให้ทั้งเจ้าของของหาย
-                  และผู้แจ้งพบ หลังจากเจ้าของของหายกด "ใช่ของฉัน" ยืนยันตัวตนแล้ว (สเตจ 1 จบ) */}
               {showMatchReceiptButton && (
                 <div style={styles.matchBox}>
                   <div style={styles.matchBoxText}>
@@ -673,9 +652,6 @@ export default function PostDetail() {
                 </div>
               )}
 
-              {/* ปุ่ม "ได้รับของแล้ว/คืนของแล้ว" — เห็นได้ทั้งเจ้าของโพสต์และผู้อ้างสิทธิ์ หลังมีการอ้างสิทธิ์เกิดขึ้น
-                  กดปุ่มนี้แล้วถึงจะปิดเคสจริง (เปลี่ยนเป็น matched, หายจากหน้าประกาศทั่วไป)
-                  ข้อความ/ป้ายปุ่มสลับฝั่งกันตามประเภทโพสต์ (ดู receiptStageText/receiptStageBtnLabel ด้านบน) */}
               {showConfirmReceiptButton && (
                 <div style={styles.matchBox}>
                   <div style={styles.matchBoxText}>
@@ -692,7 +668,6 @@ export default function PostDetail() {
                 </div>
               )}
 
-              {/* ส่วนหัวข้อรายละเอียด */}
               <div style={styles.sectionHeader}>
                 <Info size={18} style={{ color: '#F97316' }} />
                 <span style={styles.sectionTitleText}>รายละเอียด</span>
@@ -702,7 +677,6 @@ export default function PostDetail() {
                 {post.description || "ไม่มีรายละเอียดเพิ่มเติม"}
               </div>
 
-              {/* ส่วนหัวข้อผู้ประกาศ */}
               <div style={styles.sectionHeader}>
                 <User size={18} style={{ color: '#F97316' }} />
                 <span style={styles.sectionTitleText}>ผู้ประกาศ</span>
@@ -734,7 +708,6 @@ export default function PostDetail() {
                 </div>
               </div>
 
-              {/* ส่วนแสดง "อีกฝั่ง" ที่แมทช์กันแล้ว (โชว์ก็ต่อเมื่อยืนยันแมทช์เรียบร้อยแล้วเท่านั้น) */}
               {post.matched_with && (
                 <>
                   <div style={styles.sectionHeader}>
@@ -780,7 +753,6 @@ export default function PostDetail() {
 
               </div>
 
-              {/* แถบปุ่มอ้างสิทธิ์ลอยด้านล่างจอ (เฉพาะคนที่ไม่ใช่เจ้าของโพสต์ — เงื่อนไขเดิม showClaimButton) */}
               {showClaimButton && !claimed && (
                 <div className="fixed z-40 bottom-3 inset-x-3 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[600px] flex items-center gap-3 bg-white/95 backdrop-blur rounded-2xl border border-gray-100 shadow-[0_12px_32px_-6px_rgba(0,0,0,0.25)] px-3.5 py-2.5">
                   <p className="flex-1 min-w-0 text-xs sm:text-sm text-gray-600 leading-snug">
@@ -801,13 +773,11 @@ export default function PostDetail() {
             </div>
           )}
 
-          {/* โพสต์ที่คล้ายกัน (ซ่อนเองถ้าไม่มีผล) */}
           {!loading && !error && post && <SimilarPosts itemId={post.id} />}
 
         </div>
       </div>
 
-      {/* modal แก้ไขประกาศของตัวเอง */}
       <EditPostModal
         open={showEditModal}
         initial={{ title: post?.title || "", description: post?.description || "", location: post?.location || "" }}
@@ -817,7 +787,6 @@ export default function PostDetail() {
         onCancel={() => setShowEditModal(false)}
       />
 
-      {/* modal ยืนยันก่อนลบประกาศ (ย้อนกลับไม่ได้) */}
       <ResultModal
         open={showDeleteConfirm}
         success={false}
@@ -829,7 +798,6 @@ export default function PostDetail() {
         onConfirm={() => setShowDeleteConfirm(false)}
       />
 
-      {/* modal ยืนยัน "ไม่ใช่ของฉัน" ก่อนยิง reject จริง */}
       <ResultModal
         open={showRejectConfirm}
         success={false}
@@ -844,7 +812,6 @@ export default function PostDetail() {
         onConfirm={() => setShowRejectConfirm(false)}
       />
 
-      {/* modal แจ้งผลลัพธ์การกระทำต่างๆ ในหน้านี้ (แทน alert() ของเบราว์เซอร์) */}
       <ResultModal
         open={!!resultModal}
         success={resultModal?.success ?? true}
