@@ -13,6 +13,7 @@ frontend/dist-ssr/
 .env
 *.env
 !.env.example
+.adk/
 
 # Editor / OS
 .vscode/
