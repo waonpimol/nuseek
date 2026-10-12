@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { PackageSearch } from "lucide-react";
 
-// โลโก้ NUSeek: ไอคอนกล่องสีส้ม + ตัวอักษร NU สีดำ / Seek สีส้ม (ใช้ร่วมกันทุกหน้า คลิกกลับหน้าแรก)
 export default function Logo() {
 	return (
 		<Link to="/" aria-label="NUSeek หน้าแรก" className="flex items-center gap-2 md:gap-2.5 select-none">

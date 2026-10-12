@@ -37,7 +37,7 @@ import SimilarPosts from '../components/SimilarPosts';
 
 const FALLBACK_IMAGE = getPlaceholderImage(600, 400);
 
-// รวมช่องทางติดต่อทั้งหมดจากโปรไฟล์มาแสดงเป็นแถวๆ (โชว์เฉพาะช่องที่มีค่าจริง ไม่มีก็ไม่โชว์)
+// ช่องทางติดต่อจากโปรไฟล์ โชว์เฉพาะช่องที่มีค่า
 function ContactList({
   phone,
   lineId,
@@ -113,7 +113,6 @@ export default function PostDetail() {
   const [activeImage, setActiveImage] = useState(0);
   const galleryRef = useRef<HTMLDivElement>(null);
   useEffect(() => { setActiveImage(0); }, [id]);
-  // แก้ไข/ลบโพสต์ของตัวเอง
   const [showEditModal, setShowEditModal] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -137,9 +136,8 @@ export default function PostDetail() {
   }, [ownerMenuOpen]);
 
   // แจ้งผลลัพธ์การกระทำต่างๆ ในหน้านี้ (ยืนยัน/ปฏิเสธ/ปิดเคส) ด้วย modal ในแอปเอง
-  // แทน alert() ของเบราว์เซอร์ ที่จะโชว์ข้อความ "localhost บอกว่า..." ไม่สวยและดูไม่น่าเชื่อถือ
   const [resultModal, setResultModal] = useState<{ success: boolean; title: string; message: string; goToAllPosts?: boolean } | null>(null);
-  // modal ยืนยัน "ไม่ใช่ของฉัน" ก่อนยิง reject จริง (แทน window.confirm() ที่โชว์ "localhost บอกว่า..." เหมือนกัน)
+  // modal ยืนยัน "ไม่ใช่ของฉัน" ก่อน reject จริง
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
 
   useEffect(() => {
@@ -267,9 +265,9 @@ export default function PostDetail() {
   const isClaimant = !!currentUserId && post?.pending_claim_claimant_id === currentUserId;
   const showConfirmReceiptButton = !!post?.pending_claim_id && (isPostOwner || isClaimant) && !hasActiveMatchTrack;
 
-  // ทิศทางการส่งมอบของสลับกันตามประเภทโพสต์:
-  //   - โพสต์ "ของที่พบ" → เจ้าของโพสต์ (คนเจอของ) เป็นฝ่ายส่งคืน / ผู้อ้างสิทธิ์ (คนทำของหาย) เป็นฝ่ายรับคืน
-  //   - โพสต์ "ของหาย"   → เจ้าของโพสต์ (คนทำของหาย) เป็นฝ่ายรับคืน / ผู้อ้างสิทธิ์ (คนเจอของ) เป็นฝ่ายส่งคืน
+  // ทิศทางการส่งมอบสลับตามประเภทโพสต์:
+  //   - ของที่พบ → เจ้าของโพสต์ส่งคืน / ผู้อ้างสิทธิ์รับคืน
+  //   - ของหาย   → เจ้าของโพสต์รับคืน / ผู้อ้างสิทธิ์ส่งคืน
   const postOwnerReceives = post?.type === "lost";
   const isGiver = postOwnerReceives ? isClaimant : isPostOwner;
 
@@ -316,7 +314,6 @@ export default function PostDetail() {
     }
   };
 
-  // รูปทั้งหมดของโพสต์ (โพสต์เก่าที่มีรูปเดียวได้ image_urls ที่มีรูปเดียวจาก backend)
   const galleryImages: string[] = post?.image_urls?.length ? post.image_urls : post?.image_url ? [post.image_url] : [];
   const goToImage = (i: number) => {
     const el = galleryRef.current;
@@ -325,8 +322,7 @@ export default function PostDetail() {
     el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' });
   };
 
-  // เครื่องมือของเจ้าของโพสต์: แก้ไข/ลบ (ลบ = ลบออกจากระบบจริง ไม่เก็บในประวัติ) — ใช้ได้เฉพาะโพสต์ที่ยังไม่จบเคส
-  // แก้ไขไม่ได้ระหว่างกำลังส่งมอบของ (แมทช์ confirmed หรือมีคำอ้างสิทธิ์ค้างอยู่) แต่ลบได้ (อีกฝั่งจะได้รับแจ้ง)
+  // แก้ไข/ลบได้เฉพาะโพสต์ที่ยังไม่จบเคส ระหว่างส่งมอบของแก้ไขไม่ได้แต่ลบได้ (อีกฝั่งจะได้รับแจ้ง)
   const showOwnerTools = isPostOwner && post?.status !== "matched";
   const canEditPost = showOwnerTools && !post?.confirmed_match_id && !post?.pending_claim_id;
 
@@ -452,7 +448,6 @@ export default function PostDetail() {
               {(() => {
                 return (
                   <>
-                    {/* รูปภาพเต็มขอบการ์ด: หลายรูปเลื่อนดูได้ (ปัดบนมือถือ / กดลูกศรบนจอใหญ่) จอใหญ่โชว์รูปเต็มตามสัดส่วนจริง */}
                     <div className="relative w-full bg-white lg:h-full">
                       <div
                         ref={galleryRef}
@@ -520,7 +515,6 @@ export default function PostDetail() {
 
               <div style={styles.cardBody}>
 
-              {/* ชื่อสิ่งของ + ขีดสีส้ม + เมนู ⋯ (เจ้าของโพสต์) */}
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">

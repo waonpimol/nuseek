@@ -4,13 +4,10 @@ import { AlertTriangle } from "lucide-react";
 interface ErrorStateProps {
   title: string;
   description?: string;
-  // ปุ่ม "ลองใหม่" หรือลิงก์กลับ (ไม่ใส่ก็ได้)
   children?: ReactNode;
   className?: string;
 }
 
-// สถานะ "เกิดข้อผิดพลาด" ที่ใช้ร่วมกันทั้งแอป หน้าตาคู่กับ EmptyState (ไอคอนในวงกลม + หัวข้อ + คำอธิบาย + ปุ่ม)
-// ต่างกันที่สีไอคอนเป็นโทนแดงอ่อน เพื่อแยกว่า "มีปัญหา" ไม่ใช่ "ยังไม่มีข้อมูล"
 export default function ErrorState({ title, description, children, className = "" }: ErrorStateProps) {
   return (
     <div role="alert" className={`flex flex-col items-center text-center py-12 sm:py-16 px-4 ${className}`}>

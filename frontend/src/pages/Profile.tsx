@@ -33,9 +33,8 @@ interface UserProfile {
 const MOBILE_PREVIEW = 3;
 const DESKTOP_PREVIEW = 8;
 
-// Avatar แบบ hybrid: มีรูป -> โชว์รูป, ไม่มีรูป -> ตัวอักษรแรก + สีจาก getAvatarColor (สูตรกลาง)
-// ถ้าส่ง className มา จะใช้ className กำหนดขนาด (รองรับ responsive เช่น "w-20 h-20 sm:w-28 sm:h-28")
-// ถ้าไม่ส่งจะ fallback ไปใช้ size (px) แบบเดิม
+// มีรูป -> โชว์รูป, ไม่มีรูป -> ตัวอักษรแรก + สีจาก getAvatarColor
+// ขนาดใช้ className ถ้าส่งมา (รองรับ responsive) ไม่งั้นใช้ size (px)
 const Avatar = ({
   name,
   avatarUrl,
@@ -85,7 +84,6 @@ export default function Profile() {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  // แจ้งผลลัพธ์ error ด้วย modal ในแอปเอง แทน alert() ของเบราว์เซอร์ ที่โชว์ "localhost บอกว่า..."
   const [resultModal, setResultModal] = useState<{ success: boolean; message: string } | null>(null);
   const [myItems, setMyItems] = useState<any[]>([]);
   const [itemsLoading, setItemsLoading] = useState(true);
@@ -386,7 +384,6 @@ export default function Profile() {
           {!itemsLoading && filteredItems.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5 mt-5 sm:mt-6">
               {filteredItems.map((item, index) => {
-                // ย่อรายการตอนยังไม่กด "ดูเพิ่มเติม": มือถือโชว์ 3 โพสต์ / จอใหญ่โชว์ 8 โพสต์ (2 แถว x 4)
                 const visibility = showAllItems
                   ? "grid"
                   : index >= DESKTOP_PREVIEW

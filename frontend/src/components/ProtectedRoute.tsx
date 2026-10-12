@@ -3,8 +3,7 @@ import { Navigate } from "react-router-dom";
 import { supabase } from "../services/supabaseClient";
 import PageLoader from "./PageLoader";
 
-// ครอบทุกหน้าที่บังคับให้ต้อง login ก่อนถึงจะเข้าได้
-// ถ้ายังไม่ login จะเด้งไปหน้า Welcome (เลือกเข้าสู่ระบบ/สมัครสมาชิก) แทน
+// ถ้ายังไม่ login จะเด้งไปหน้า Welcome
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [checking, setChecking] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);

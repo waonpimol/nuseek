@@ -2,9 +2,8 @@ import json
 
 from nuseek.tools.supabase_tool import supabase, attach_image_url, search_by_embedding
 
-# ระบุ column ที่ต้องใช้จริงๆ ในการแสดงผล (ไม่เอา "embedding" ติดมาด้วย
-# เพราะเป็นเวกเตอร์ตัวเลขขนาดใหญ่ที่ frontend ไม่ได้ใช้เลย แต่ทำให้ query ช้าลงมากถ้าดึงมาทุกครั้ง)
-# ดึงข้อมูลติดต่อทั้งหมดจากโปรไฟล์ผู้ใช้ (users) แทนที่จะเก็บซ้ำเป็น contact_phone ต่อโพสต์
+ # ไม่ดึง embedding เพราะเป็นเวกเตอร์ขนาดใหญ่ที่ frontend ไม่ใช้ และทำให้ query ช้า
+
 ITEM_COLUMNS = "id, type, title, description, image_path, image_paths, location, status, user_id, created_at, resolved_at, users(display_name, avatar_url, phone_number, line_id, facebook_url, instagram_username)"
 
 

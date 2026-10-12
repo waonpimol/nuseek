@@ -8,8 +8,7 @@ interface LoadingOverlayProps {
   intervalMs?: number;
 }
 
-// Overlay เต็มจอสำหรับงานที่รอนาน (ส่งประกาศ / ค้นหาด้วยรูป ที่ต้องรอ AI)
-// หมายเหตุ: ข้อความที่เปลี่ยนเป็นการเดินตามเวลา (timer) ไม่ได้อ่านความคืบหน้าจริงจาก backend
+// ข้อความที่เปลี่ยนเป็นการเดินตามเวลา (timer) ไม่ได้อ่านความคืบหน้าจริงจาก backend
 // เพราะ endpoint ตอบกลับครั้งเดียวตอนจบ ไม่ได้ stream สถานะระหว่างทาง
 export default function LoadingOverlay({
   open,

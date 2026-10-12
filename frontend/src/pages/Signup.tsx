@@ -32,7 +32,6 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
-  // แจ้งผลลัพธ์ต่างๆ ด้วย modal ในแอปเอง แทน alert() ของเบราว์เซอร์ ที่โชว์ "localhost บอกว่า..."
   const [resultModal, setResultModal] = useState<{ success: boolean; message: string; goToLogin?: boolean } | null>(null);
 
   const passwordChecks = getPasswordChecks(password);
@@ -60,7 +59,7 @@ export default function Signup() {
     setLoading(true);
 
     try {
-      // 1. สมัครบัญชีเข้าระบบ Authentication ของ Supabase
+      // สมัครบัญชีใน Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email,
         password: password,
@@ -73,7 +72,7 @@ export default function Signup() {
         const firstName = nameParts[0] || "";
         const lastName = nameParts.slice(1).join(" ") || "";
 
-        // 2. นำข้อมูลโปรไฟล์ไปบันทึกเพิ่มลงตาราง public.users ที่สร้างไว้
+        // แล้วบันทึกโปรไฟล์ลงตาราง public.users
         const { error: profileError } = await supabase
           .from("users")
           .insert([
@@ -100,7 +99,6 @@ export default function Signup() {
   return (
     <div className="relative overflow-hidden min-h-screen bg-white flex items-center justify-center px-3 sm:px-4 py-6 sm:py-10">
 
-      {/* พื้นหลัง (ธีมเดียวกับหน้า Login แต่คนละลาย): คลื่นพีชบางๆ ชั้นเดียวที่ชายล่างจอ แค่แซมให้ไม่โล่ง */}
       <svg
         aria-hidden="true"
         viewBox="0 0 400 200"

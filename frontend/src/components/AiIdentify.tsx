@@ -11,7 +11,7 @@ const CONFIDENCE_TEXT: Record<Suggestion["confidence"], string> = {
   low: "มั่นใจต่ำ ลองตรวจสอบอีกครั้ง",
 };
 
-// ข้อความความคืบหน้าระหว่างรอ (สลับทุก ~2.5 วินาที เพื่อให้รู้ว่ายังทำงานอยู่ ไม่ได้ค้าง)
+// ข้อความความคืบหน้าระหว่างรอ (สลับทุก ~2.5 วินาที)
 const PROGRESS_STEPS = [
   "AI กำลังดูรูป...",
   "กำลังค้นหาข้อมูลจาก Google...",
@@ -43,7 +43,6 @@ export default function AiIdentify({ file, onApply }: { file: File | null; onApp
     setLoading(false);
   }, [file]);
 
-  // ระหว่างโหลด ไล่ข้อความความคืบหน้าไปทีละขั้น (ค้างที่ขั้นสุดท้าย)
   useEffect(() => {
     if (!loading) {
       setStep(0);

@@ -20,7 +20,6 @@ import ResultModal from "../components/ResultModal";
 import Spinner from "../components/Spinner";
 import { useToast } from "../components/Toast";
 
-// สีคงที่ตามชื่อ (hash) — คนเดิมได้สีเดิมเสมอ ไม่ต้องเก็บสีลง DB เพิ่ม
 const getAvatarColor = (name: string) => {
 	if (!name) return "hsl(24, 90%, 50%)";
 
@@ -33,7 +32,6 @@ const getAvatarColor = (name: string) => {
 	return `hsl(${hue}, 60%, 45%)`;
 };
 
-// Avatar แบบ hybrid: มีรูป -> โชว์รูป, ไม่มีรูป -> ตัวอักษรแรก + สีจาก hash
 const Avatar = ({
 	name,
 	avatarUrl,

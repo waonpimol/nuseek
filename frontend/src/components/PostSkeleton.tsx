@@ -1,5 +1,4 @@
-// Skeleton ของการ์ดโพสต์ — รูปทรงเดียวกับการ์ดจริงในหน้า Allposts / Profile
-// มือถือ: แถวนอน (รูปเล็กซ้าย + ข้อความขวา) / จอใหญ่: การ์ดแนวตั้ง (รูปบน + ข้อความล่าง)
+// Skeleton ของการ์ดโพสต์ ต้องรูปทรงเดียวกับ PostGridCard
 function PostSkeletonCard({ showReporter = true }: { showReporter?: boolean }) {
   return (
     <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 flex flex-row sm:flex-col animate-pulse">

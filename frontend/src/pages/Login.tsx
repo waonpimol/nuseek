@@ -51,7 +51,6 @@ export default function Login() {
   return (
     <div className="relative overflow-hidden min-h-screen bg-white flex items-center justify-center px-3 sm:px-4 py-6 sm:py-10">
 
-      {/* พื้นหลัง: แถบโค้งสีส้มอ่อนมุมขวาบน (2 ชั้น ให้ดูมีมิติ) */}
       <svg
         aria-hidden="true"
         viewBox="0 0 400 240"

@@ -4,10 +4,6 @@ import { PackageSearch, UserPlus, ArrowRight, Backpack, Wallet, Smartphone, KeyR
 export default function Welcome() {
   return (
     <div className="min-h-screen bg-white flex items-center justify-center px-6 py-12 font-kanit relative overflow-hidden">
-
-      {/* องค์ประกอบตกแต่งพื้นหลัง — จุดกริด, เส้นเฉียง, วงแหวน
-          มือถือ: กระจายสลับซ้าย-ขวา ระยะห่างจากขอบไม่เท่ากัน ใช้พื้นที่ว่างข้างโลโก้/ชื่อ และแถบบน-ล่าง (เลี่ยงข้อความกลางจอ)
-          จอใหญ่ (sm/lg): กลับไปใช้ตำแหน่งเดิม — ที่ย้ายข้างจากซ้ายเป็นขวาต้องมี *-auto ล้างค่าฝั่งเดิม */}
       <div className="grid absolute top-7 right-[12%] sm:top-16 sm:right-16 grid-cols-3 gap-1.5 sm:gap-2">
         {Array.from({ length: 9 }).map((_, i) => (
           <span key={i} className="w-1.5 h-1.5 rounded-full bg-[#FF6B00]/50" />
@@ -18,7 +14,6 @@ export default function Welcome() {
       <div className="absolute bottom-20 left-[14%] sm:bottom-24 sm:left-20 w-5 sm:w-6 h-[2px] bg-gray-300 rotate-45" />
       <div className="absolute top-5 left-[8%] sm:top-1/3 sm:left-auto sm:right-12 w-7 h-7 sm:w-10 sm:h-10 rounded-full border-2 border-[#FF6B00]/30" />
 
-      {/* ชุดกลางจอ (ซ้าย-ขวาของการ์ด) — มือถือแทรกตามช่องว่างข้างชื่อ/ไอคอน / จอกว้างกันพื้นที่ว่างโล่ง */}
       <div className="absolute top-[34%] left-[5%] lg:top-1/2 lg:left-[12%] -translate-y-1/2 w-4 h-4 lg:w-6 lg:h-6 rounded-full border-2 border-gray-200" />
       <div className="grid absolute top-[48%] left-[9%] lg:top-[38%] lg:left-[18%] grid-cols-2 gap-1.5 lg:gap-2">
         {Array.from({ length: 4 }).map((_, i) => (

@@ -19,8 +19,6 @@ export interface AppNotification {
   created_at: string;
 }
 
-// Hook กลางไว้ใช้กับกระดิ่งแจ้งเตือนบน navbar ทุกหน้า
-// ดึงแจ้งเตือนจริงจาก backend ของ user ที่ login อยู่ตอนนั้น
 export function useNotifications() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +68,7 @@ export function useNotifications() {
 
   const confirm = useCallback(async (matchId: string) => {
     await confirmMatch(matchId);
-    await refresh(); // โหลดแจ้งเตือนใหม่ (ข้อความ "ยืนยันเรียบร้อย" จะมาแทนที่)
+    await refresh(); 
   }, [refresh]);
 
   return { notifications, loading, unreadCount, refresh, markAllRead, markOneRead, confirm };

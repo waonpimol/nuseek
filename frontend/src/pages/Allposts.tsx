@@ -99,7 +99,7 @@ export default function AllPosts() {
 	);
 	const [searchQuery, setSearchQuery] = useState<string>(searchParams.get("q") ?? "");
 	const [selectedLocation, setSelectedLocation] = useState<string>("all");
-	const [sortNewest, setSortNewest] = useState(true); // ใหม่สุดก่อน (ค่าเริ่มต้น) / เก่าสุดก่อน
+	const [sortNewest, setSortNewest] = useState(true); 
 
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -162,13 +162,11 @@ export default function AllPosts() {
 	const hasActiveFilter =
 		activeTab !== "ทั้งหมด" || searchQuery.trim() !== "" || selectedLocation !== "all";
 
-	// แบ่งหน้า: หน้าละ 9 การ์ด
 	const [page, setPage] = useState(1);
 	const totalPages = Math.max(1, Math.ceil(filteredPosts.length / PAGE_SIZE));
 	const currentPage = Math.min(page, totalPages);
 	const pagedPosts = filteredPosts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-	// เปลี่ยนตัวกรอง/คำค้น → กลับไปหน้า 1
 	useEffect(() => {
 		setPage(1);
 	}, [activeTab, searchQuery, selectedLocation, sortNewest]);
@@ -197,7 +195,7 @@ export default function AllPosts() {
 	return (
 		<div className="min-h-screen bg-cream antialiased">
 
-			{/* ================= Navbar ================= */}
+			{/* Navbar */}
 			<nav className="bg-white shadow-sm border-b border-gray-300 relative">
 				<div className="max-w-7xl mx-auto h-16 md:h-20 flex items-center justify-between px-4 md:px-8">
 
@@ -205,7 +203,6 @@ export default function AllPosts() {
 						<Logo />
 					</div>
 
-					{/* Menu (desktop) */}
 					<div className="hidden md:flex items-center gap-8 text-gray-700">
 						<Link to="/" className="flex items-center gap-2 hover:text-orange-500">
 							<Home size={20} />
@@ -221,7 +218,6 @@ export default function AllPosts() {
 						</Link>
 					</div>
 
-					{/* Right */}
 					<div className="flex items-center gap-2 md:gap-4">
 						<NotificationBell />
 
@@ -229,7 +225,6 @@ export default function AllPosts() {
 							<User />
 						</Link>
 
-						{/* ปุ่มแฮมเบอร์เกอร์ (มือถือเท่านั้น) */}
 						<button
 							onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
 							className="md:hidden p-2 rounded-full text-gray-600 hover:text-orange-500 hover:bg-gray-100 transition"
@@ -240,7 +235,6 @@ export default function AllPosts() {
 					</div>
 				</div>
 
-				{/* Menu (mobile, ยุบ/ขยาย) */}
 				{mobileMenuOpen && (
 					<div className="md:hidden border-t border-gray-100 bg-white px-4 py-2 flex flex-col">
 						<Link
@@ -271,7 +265,7 @@ export default function AllPosts() {
 				)}
 			</nav>
 
-			{/* ================= Main Container ================= */}
+			{/* Main Container */}
 			<div className="max-w-7xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
 
 				{/* ---- (Filter & Search Header) ---- */}

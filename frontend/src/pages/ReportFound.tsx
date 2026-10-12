@@ -103,8 +103,7 @@ export default function ReportFound() {
 			});
 		} catch (err: any) {
 			console.error(err);
-			// ใช้ข้อความ error จริงจาก backend ถ้ามี (เช่น "กรุณากรอกเบอร์โทรศัพท์เป็นตัวเลขเท่านั้น")
-			// ไม่มีก็ fallback เป็นข้อความทั่วไป
+			// ใช้ข้อความ error จาก backend ถ้ามี
 			setResultModal({
 				success: false,
 				message: err?.message || "เกิดข้อผิดพลาด ไม่สามารถส่งประกาศได้ กรุณาลองใหม่อีกครั้ง",

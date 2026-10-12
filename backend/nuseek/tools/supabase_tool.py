@@ -36,8 +36,6 @@ def attach_image_url(row: dict) -> dict:
     """เติมฟิลด์ image_url (คำนวณจาก image_path) ให้ row ที่ดึงมาจาก DB ก่อนส่งออกไปให้ frontend"""
     if row:
         row["image_url"] = get_image_url(row.get("image_path"))
-        # หลายรูป: image_paths คือรูปทั้งหมด (รูปแรก = รูปปก ตรงกับ image_path)
-        # โพสต์เก่า/ผลจาก search_items ไม่มี image_paths → ใช้รูปปกรูปเดียวแทน
         paths = row.get("image_paths") or ([row["image_path"]] if row.get("image_path") else [])
         row["image_urls"] = [get_image_url(p) for p in paths]
     return row
@@ -55,7 +53,7 @@ def insert_item_direct(item_type, title, description, image_path, location, embe
         "type": item_type,
         "title": title,
         "description": description,
-        "image_path": image_path,          # รูปปก (รูปแรก) — การ์ด/ผลค้นหาใช้ตัวนี้
+        "image_path": image_path,          
         "image_paths": image_paths or ([image_path] if image_path else []),  # รูปทั้งหมด
         "location": location,
         "embedding": embedding,
