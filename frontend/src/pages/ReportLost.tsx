@@ -21,10 +21,10 @@ import Spinner from '../components/Spinner';
 import LoadingOverlay from '../components/LoadingOverlay';
 import AiIdentify from '../components/AiIdentify';
 
-export default function ReportFound() {
+export default function ReportLost() {
 	const navigate = useNavigate();
 	const [itemName, setItemName] = useState<string>('');
-	const [description, setDescription] = useState<string>('');
+	const [details, setDetails] = useState<string>('');
 	const [location, setLocation] = useState<string>('');
 	// แนบได้หลายรูป (รูปแรก = รูปปกที่โชว์ในการ์ด) เก็บไฟล์คู่กับ URL พรีวิวของแต่ละรูป
 	const MAX_IMAGES = 5;
@@ -88,9 +88,9 @@ export default function ReportFound() {
 			}
 
 			const formData = new FormData();
-			formData.append('item_type', 'found');
+			formData.append('item_type', 'lost');
 			formData.append('item_name', itemName);
-			formData.append('details', description);
+			formData.append('details', details);
 			formData.append('location', location);
 			if (user) formData.append('user_id', user.id);
 			images.forEach(({ file }) => formData.append('images', file));
@@ -98,12 +98,13 @@ export default function ReportFound() {
 			const result = await reportItem(formData);
 			setResultModal({
 				success: true,
-				message: result.message || "ระบบบันทึกประกาศและเริ่มกระบวนการค้นหาเจ้าของเรียบร้อยแล้ว",
+				message: result.message || "ระบบบันทึกประกาศและเริ่มกระบวนการตามหาเรียบร้อยแล้ว",
 				matchedItemId: result.matched_item_id || null,
 			});
 		} catch (err: any) {
 			console.error(err);
-			// ใช้ข้อความ error จาก backend ถ้ามี
+			// ใช้ข้อความ error จริงจาก backend ถ้ามี (เช่น "กรุณากรอกเบอร์โทรศัพท์เป็นตัวเลขเท่านั้น")
+			// ไม่มีก็ fallback เป็นข้อความทั่วไป
 			setResultModal({
 				success: false,
 				message: err?.message || "เกิดข้อผิดพลาด ไม่สามารถส่งประกาศได้ กรุณาลองใหม่อีกครั้ง",
@@ -182,8 +183,8 @@ export default function ReportFound() {
 					<form onSubmit={handleSubmit} style={styles.mainCard}>
 
 						{/* หัวข้อด้านบนสุด */}
-						<h1 style={styles.mainTitle}>ประกาศพบสิ่งของ</h1>
-						<p style={styles.mainSubtitle}>กรอกรายละเอียดเพื่อประกาศตามหาเจ้าของของชิ้นนี้</p>
+						<h1 style={styles.mainTitle}>ประกาศแจ้งของหาย</h1>
+						<p style={styles.mainSubtitle}>กรอกรายละเอียดเพื่อประกาศตามหาสิ่งของที่สูญหาย</p>
 
 						{/* พรีวิวรูปที่แนบ (ถ้ามี) — แสดงเหนือช่องชื่อสิ่งของ */}
 						{images.length > 0 && (
@@ -204,11 +205,11 @@ export default function ReportFound() {
 							</div>
 						)}
 
-						{/* ช่องชื่อสิ่งของ (กรอกเองตรงๆ ไม่ให้ AI ต้องเดา/ตีความจากรายละเอียดอีกต่อไป) */}
+						{/* ช่องชื่อสิ่งของ (เฉพาะฝั่งของหาย เพราะเจ้าของรู้ชื่อของตัวเองชัดเจน) */}
 						<div style={styles.inputBlock}>
 							<input
 								type="text"
-								placeholder="ชื่อสิ่งของที่พบ เช่น กระเป๋าสตางค์หนังสีดำ, กุญแจรถ"
+								placeholder="ชื่อสิ่งของที่หาย เช่น โทรศัพท์มือถือ iPhone 15, กระเป๋าสตางค์หนังสีดำ"
 								value={itemName}
 								onChange={(e) => setItemName(e.target.value)}
 								style={{ ...styles.textareaWhite, border: 'none' }}
@@ -222,21 +223,20 @@ export default function ReportFound() {
 						{/* กล่องข้อความขนาดใหญ่พิมพ์รายละเอียด */}
 						<div style={styles.inputBlock}>
 							<textarea
-								placeholder="ระบุสถานที่ที่พบ ลักษณะสิ่งของ สี หรือรายละเอียดสำคัญอื่นๆ..."
-								value={description}
-								onChange={(e) => setDescription(e.target.value)}
+								placeholder="ระบุลักษณะ ตำหนิ สี หรือเวลาที่คาดว่าสิ่งของสูญหายล่าสุด..."
+								value={details}
+								onChange={(e) => setDetails(e.target.value)}
 								style={styles.textareaWhite}
-								rows={6}
-								required
+								rows={5}
 							/>
 						</div>
 
-						{/* ช่องเลือกสถานที่ที่พบ */}
+						{/* ช่องเลือกสถานที่ที่คาดว่าทำหาย */}
 						<div style={styles.inputBlock}>
 							<input
 								type="text"
 								list="location-suggestions"
-								placeholder="พิมพ์สถานที่ที่พบสิ่งของ เช่น คณะวิศวกรรมศาสตร์, หอสมุด"
+								placeholder="พิมพ์สถานที่ที่คาดว่าทำหาย เช่น คณะวิศวกรรมศาสตร์, หอสมุด"
 								value={location}
 								onChange={(e) => setLocation(e.target.value)}
 								style={{ ...styles.textareaWhite, border: 'none' }}
@@ -302,12 +302,12 @@ export default function ReportFound() {
 
 						{/* ปุ่มส่งฟอร์มประกาศ */}
 						<button type="submit" style={{ ...styles.submitBtn, ...(loading ? styles.submitBtnLoading : {}) }} disabled={loading}>
-							{loading ? (<><Spinner size={16} />กำลังบันทึก...</>) : 'ส่งข้อมูลเพื่อประกาศตามหาเจ้าของ'}
+							{loading ? (<><Spinner size={16} />กำลังบันทึก...</>) : 'ยืนยันการลงประกาศตามหา'}
 						</button>
 
 						{/* หมายเหตุแจ้งเตือนผู้ใช้งานตัวเล็กด้านล่าง */}
 						<div style={styles.noteBox}>
-							<p style={styles.noteItem}>* กรุณาแนบรูปภาพสิ่งของที่พบ</p>
+							<p style={styles.noteItem}>* กรุณาแนบรูปภาพสิ่งของที่หาย (ถ้ามี)</p>
 							<p style={styles.noteItem}>* กรุณาระบุรายละเอียดลักษณะเด่นชัดเจน</p>
 							<p style={styles.noteItem}>* กรุณาระบุอาคาร คณะ หรือจุดพิกัดในมหาวิทยาลัย</p>
 						</div>
@@ -315,7 +315,7 @@ export default function ReportFound() {
 					</form>
 
 					{/* ข้อความชี้แจงด้านล่างการ์ด */}
-					<p style={styles.aiFooterText}>ระบบจะทำการวิเคราะห์ข้อมูลและจับคู่ส่งสัญญานไปหาผู้ที่ลงประกาศของหายทันที</p>
+					<p style={styles.aiFooterText}>ระบบจะทำการวิเคราะห์ข้อมูลและจับคู่ส่งสัญญานไปหาผู้ที่พบสิ่งของนี้ทันที</p>
 
 					{/* ปุ่มกดยกเลิก */}
 					<Link to="/ " style={styles.backLinkBtn}>ยกเลิก</Link>
@@ -405,7 +405,8 @@ const styles: Record<string, React.CSSProperties> = {
 	innerLabelRow: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: '600', color: '#4A5568', paddingLeft: '2px' },
 	socialInput: { width: '100%', padding: '11px 14px', border: '1px solid #E2E8F0', borderRadius: '10px', fontSize: '13.5px', color: '#2D3748', outline: 'none', backgroundColor: '#F9FAFB', boxSizing: 'border-box' as const, transition: 'border-color 0.15s, background-color 0.15s', fontFamily: 'inherit' },
 
-	submitBtn: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backgroundColor: '#0EA5E9', color: '#FFFFFF', border: 'none', padding: 'clamp(10px, 3vw, 14px) 0', borderRadius: '12px', fontSize: 'clamp(12px, 3.2vw, 15px)', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit' },
+	// ปุ่มหลักโทนแดง (ต่างจาก ReportFound ที่เป็นน้ำเงิน) ให้แยกออกง่ายว่าเป็นฝั่ง "ของหาย"
+	submitBtn: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backgroundColor: '#FF3B3B', color: '#FFFFFF', border: 'none', padding: 'clamp(10px, 3vw, 14px) 0', borderRadius: '12px', fontSize: 'clamp(12px, 3.2vw, 15px)', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit' },
 	submitBtnLoading: { opacity: 0.75, cursor: 'not-allowed' },
 
 	noteBox: { textAlign: 'left', marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '4px', paddingLeft: '4px' },
