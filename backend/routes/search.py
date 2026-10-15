@@ -66,7 +66,7 @@ async def search_by_image(
         embedding = embed_text(caption_th or caption_en)
 
         # recall กว้าง ๆ ก่อน (score >= 0.3 ทั้งหมด)
-        # ไม่เอาโพสต์ของผู้ค้นหาเองมาเป็นผลลัพธ์ 
+        # ไม่เอาโพสต์ของผู้ค้นหาเองมาเป็นผลลัพธ์
         own_item_ids = get_item_ids_by_user(user_id) if user_id else []
         candidates = search_by_embedding(
             embedding, top_k=10, threshold=RECALL_THRESHOLD, exclude_item_ids=own_item_ids
@@ -75,7 +75,7 @@ async def search_by_image(
         high_confidence = [c for c in candidates if c.get("score", 0) >= HIGH_CONFIDENCE_THRESHOLD]
         low_confidence = [c for c in candidates if c.get("score", 0) < HIGH_CONFIDENCE_THRESHOLD]
 
-        # ส่งเฉพาะกลุ่ม score ต่ำให้ agent พิจารณา 
+        # ส่งเฉพาะกลุ่ม score ต่ำให้ agent พิจารณา
         verified_low = verify_candidates(caption_th or caption_en, low_confidence) if low_confidence else []
         low_confidence_matched = [
             r for r in verified_low

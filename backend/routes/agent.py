@@ -18,7 +18,7 @@ from nuseek.tools.embedding_tool import embed_text
 
 router = APIRouter()
 
-MAX_IMAGES = 5 
+MAX_IMAGES = 5
 
 
 def upload_image_to_supabase(file_path: str, filename: str) -> str:
@@ -35,10 +35,10 @@ def upload_image_to_supabase(file_path: str, filename: str) -> str:
 @router.post("/report")
 async def report_item(
     item_type: str = Form(...),       # "lost" หรือ "found"
-    item_name: str = Form(...),      
+    item_name: str = Form(...),
     details: str = Form(""),
-    location: str = Form(""),         
-    user_id: str = Form(""),  # uuid ของผู้ login         
+    location: str = Form(""),
+    user_id: str = Form(""),  # uuid ของผู้ login
     images: list[UploadFile] = File(default=[]),   # แนบได้หลายรูป (สูงสุด MAX_IMAGES) รูปแรก = รูปปก
     image: UploadFile | None = File(None),         # ช่องรูปเดียวแบบเดิม รองรับ client เก่า
 ):
@@ -76,7 +76,7 @@ async def report_item(
     # 2) รวมข้อความทั้งหมดไว้ใช้สร้าง embedding — ใช้แค่ข้อความที่ผู้ใช้พิมพ์เอง ไม่ผ่าน BLIP แล้ว
     combined_text = " ".join(filter(None, [item_name.strip(), details.strip()])).strip()
 
-    # 3) สร้าง embedding ตรง ๆ 
+    # 3) สร้าง embedding ตรง ๆ
     embedding = embed_text(combined_text)
 
     # 4) ชื่อสิ่งของมาจากที่ผู้ใช้กรอกเองเสมอ
@@ -122,7 +122,7 @@ async def report_item(
         except Exception as e:
             print(f"[save_match] error: {e}")
 
-    # 8) สรุปข้อความกลับไปให้ frontend 
+    # 8) สรุปข้อความกลับไปให้ frontend
     matched_item_id = None
     if matches:
         best = max(matches, key=lambda x: x.get("score", 0))

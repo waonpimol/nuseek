@@ -192,7 +192,7 @@ def _attach_pending_claim(row: dict) -> dict:
 
 
 def get_item_by_id(item_id: str):
- 
+
     result = (
         supabase
         .table("items")
@@ -201,7 +201,7 @@ def get_item_by_id(item_id: str):
         .maybe_single()
         .execute()
     )
- 
+
     if not result or not result.data:
         return None
     row = _attach_pending_match(_attach_reporter_name(attach_image_url(result.data)))
