@@ -8,7 +8,7 @@ import { getAvatarColor, getAvatarInitial } from "../utils/avatar";
 const FALLBACK_IMAGE = getPlaceholderImage(500, 375);
 
 // สไลด์รูปในการ์ด: ปัดซ้าย-ขวาบนมือถือ / กดลูกศรบนจอใหญ่ มีตัวนับ (2/3) และจุดบอกตำแหน่ง
-function ImageCarousel({ post, score, matched }: { post: any; score?: number; matched?: boolean }) {
+function ImageCarousel({ post, score, matched, expired }: { post: any; score?: number; matched?: boolean; expired?: boolean }) {
 	const imgs: string[] = post.image_urls?.length
 		? post.image_urls
 		: post.image_url
@@ -57,9 +57,9 @@ function ImageCarousel({ post, score, matched }: { post: any; score?: number; ma
 				))}
 			</div>
 
-			<div className={`absolute top-2.5 left-2.5 sm:top-3 sm:left-3 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full flex items-center gap-1.5 sm:gap-2 shadow-sm select-none pointer-events-none ${matched ? "bg-green-500" : post.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
+			<div className={`absolute top-2.5 left-2.5 sm:top-3 sm:left-3 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full flex items-center gap-1.5 sm:gap-2 shadow-sm select-none pointer-events-none ${matched ? "bg-green-500" : expired ? "bg-gray-400" : post.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
 				<span className="text-[11px] sm:text-xs font-semibold tracking-wide text-white">
-					{matched ? "สำเร็จ" : post.type === "lost" ? "หาย" : "พบ"}
+					{matched ? "สำเร็จ" : expired ? "หมดอายุ" : post.type === "lost" ? "หาย" : "พบ"}
 				</span>
 			</div>
 
@@ -118,11 +118,13 @@ export default function PostCard({
 	score,
 	showReporter = false,
 	matched = false,
+	expired = false,
 }: {
 	post: any;
 	score?: number;
 	showReporter?: boolean;
 	matched?: boolean;
+	expired?: boolean;
 }) {
 	const navigate = useNavigate();
 	return (
@@ -147,7 +149,7 @@ export default function PostCard({
 			</div>
 
 			<div className="hidden sm:block">
-				<ImageCarousel post={post} score={score} matched={matched} />
+				<ImageCarousel post={post} score={score} matched={matched} expired={expired} />
 			</div>
 
 			<div className="p-0 pr-1 sm:p-4 flex-1 flex flex-col justify-center sm:justify-start gap-1.5 sm:gap-3 min-w-0">
@@ -156,8 +158,8 @@ export default function PostCard({
 					<h3 className="text-base font-extrabold tracking-tight text-gray-900 leading-snug line-clamp-1 min-w-0 sm:text-lg sm:leading-snug sm:min-h-[3.1rem] sm:line-clamp-2 group-hover:text-orange-500 transition">
 						{post.title || "ไม่ระบุชื่อสิ่งของ"}
 					</h3>
-					<span className={`sm:hidden flex-shrink-0 px-2 py-px rounded-full text-[11px] font-semibold text-white ${matched ? "bg-green-500" : post.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
-						{matched ? "สำเร็จ" : post.type === "lost" ? "หาย" : "พบ"}
+					<span className={`sm:hidden flex-shrink-0 px-2 py-px rounded-full text-[11px] font-semibold text-white ${matched ? "bg-green-500" : expired ? "bg-gray-400" : post.type === "lost" ? "bg-red-500" : "bg-sky-500"}`}>
+						{matched ? "สำเร็จ" : expired ? "หมดอายุ" : post.type === "lost" ? "หาย" : "พบ"}
 					</span>
 				</div>
 				<div className="sm:hidden w-6 h-1 rounded-full bg-orange-500 -mt-0.5" />

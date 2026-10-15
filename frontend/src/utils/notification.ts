@@ -16,6 +16,8 @@ export function getNotificationTitle(n: Pick<AppNotification, "title" | "message
   if (m.startsWith("ปิดเคสให้ประกาศ")) return "ปิดประกาศของคุณให้แล้ว";
   if (m.includes("ที่เคยแมทช์กับ")) return "ประกาศที่จับคู่กับคุณถูกลบแล้ว";
   if (m.includes("ถูกเจ้าของลบแล้ว")) return "ประกาศที่คุณแจ้งถูกลบแล้ว";
+  if (m.startsWith("เตือนความจำ:")) return "อย่าลืมกดปิดเคส";
+  if (m.startsWith("การส่งมอบ")) return "การส่งมอบถูกยกเลิก";
   return "การแจ้งเตือน";
 }
 
