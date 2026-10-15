@@ -75,17 +75,20 @@ def _attach_pending_match(row: dict) -> dict:
 
     item_id = row.get("id")
     lost_match = (
-        supabase.table("matches").select("id, lost_item_id")
+        supabase.table("matches").select("id, lost_item_id, similarity_score")
         .eq("lost_item_id", item_id).eq("status", "pending")
+        .order("similarity_score", desc=True)
         .limit(1).execute()
     )
     found_match = (
-        supabase.table("matches").select("id, lost_item_id")
+        supabase.table("matches").select("id, lost_item_id, similarity_score")
         .eq("found_item_id", item_id).eq("status", "pending")
+        .order("similarity_score", desc=True)
         .limit(1).execute()
     )
 
     match_rows = (lost_match.data or []) + (found_match.data or [])
+    match_rows.sort(key=lambda m: m.get("similarity_score") or 0, reverse=True)
     if match_rows:
         match = match_rows[0]
         row["pending_match_id"] = match["id"]
