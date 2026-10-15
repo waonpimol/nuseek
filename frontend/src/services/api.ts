@@ -163,7 +163,38 @@ export async function confirmClaim(claimId: string, userId: string) {
   });
 
   if (!response.ok) {
-    throw new Error("ยืนยันไม่สำเร็จ");
+    let detail = "ยืนยันไม่สำเร็จ";
+    try {
+      const errBody = await response.json();
+      if (errBody?.detail) detail = errBody.detail;
+    } catch {
+      // ไม่ใช่ JSON ก็ปล่อยข้อความ default ไว้
+    }
+    throw new Error(detail);
+  }
+
+  return await response.json();
+}
+
+// "ย้อนไปตามหาใหม่" ระหว่างรอส่งมอบ: kind = "matches" (แมทช์จาก AI) หรือ "claims" (อ้างสิทธิ์)
+export async function cancelHandover(kind: "matches" | "claims", id: string, userId: string) {
+  const formData = new FormData();
+  formData.append("user_id", userId);
+
+  const response = await fetch(`${API}/${kind}/${id}/cancel`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let detail = "ยกเลิกไม่สำเร็จ";
+    try {
+      const errBody = await response.json();
+      if (errBody?.detail) detail = errBody.detail;
+    } catch {
+      // ไม่ใช่ JSON ก็ปล่อยข้อความ default ไว้
+    }
+    throw new Error(detail);
   }
 
   return await response.json();

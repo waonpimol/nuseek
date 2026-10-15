@@ -99,7 +99,7 @@ export default function AllPosts() {
 	);
 	const [searchQuery, setSearchQuery] = useState<string>(searchParams.get("q") ?? "");
 	const [selectedLocation, setSelectedLocation] = useState<string>("all");
-	const [sortNewest, setSortNewest] = useState(true); 
+	const [sortNewest, setSortNewest] = useState(true);
 
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 

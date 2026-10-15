@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from supabase import create_client
 from google.adk.tools.tool_context import ToolContext
@@ -19,6 +19,30 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 # STORAGE HELPERS
 # ==========================================
 BUCKET_NAME = "items-images"
+
+# ประกาศที่เปิดไว้เกินกี่วันถือว่าหมดอายุ: ไม่แสดงในหน้ารวม ผลค้นหา และไม่นำไปจับคู่ (ข้อมูลไม่ถูกลบ)
+POST_TTL_DAYS = 30
+# ค้างอยู่ระหว่างส่งมอบเกินกี่วันถึงจะแจ้งเตือนให้กลับมากดปิดเคส
+HANDOVER_REMINDER_DAYS = 3
+REMINDER_PREFIX = "เตือนความจำ:"
+
+
+def listing_cutoff_iso() -> str:
+    return (datetime.now(timezone.utc) - timedelta(days=POST_TTL_DAYS)).isoformat()
+
+
+def _keep_listable(rows: list) -> list:
+    """กรองเหลือเฉพาะโพสต์ที่ยัง active และยังไม่หมดอายุ (rpc search_items ไม่ได้กรองสถานะให้)"""
+    ids = [r["id"] for r in rows if r.get("id")]
+    if not ids:
+        return []
+    res = (
+        supabase.table("items").select("id")
+        .in_("id", ids).eq("status", "active").gte("created_at", listing_cutoff_iso())
+        .execute()
+    )
+    listable = {str(r["id"]) for r in (res.data or [])}
+    return [r for r in rows if str(r.get("id")) in listable]
 
 
 def get_image_url(image_path: str | None) -> str:
@@ -53,7 +77,7 @@ def insert_item_direct(item_type, title, description, image_path, location, embe
         "type": item_type,
         "title": title,
         "description": description,
-        "image_path": image_path,          
+        "image_path": image_path,
         "image_paths": image_paths or ([image_path] if image_path else []),  # รูปทั้งหมด
         "location": location,
         "embedding": embedding,
@@ -93,7 +117,7 @@ def search_similar_items(current_type, embedding, top_k=5, threshold=0.6):
         .execute()
     )
 
-    rows = result.data or []
+    rows = _keep_listable(result.data or [])
     return [attach_image_url(x) for x in rows if x.get("score", 0) >= threshold]
 
 # ==========================================
@@ -139,7 +163,7 @@ def search_by_embedding(embedding: list, top_k: int = 10, threshold: float = 0.3
         )
         all_rows.extend(r for r in (result.data or []) if str(r.get("id")) not in exclude)
 
-    matches = [x for x in all_rows if x.get("score", 0) >= threshold]
+    matches = _keep_listable([x for x in all_rows if x.get("score", 0) >= threshold])
     matches.sort(key=lambda x: x.get("score", 0), reverse=True)
     matches = [attach_image_url(x) for x in matches[:top_k]]
 
@@ -338,7 +362,7 @@ def save_match(lost_item_id, found_item_id, similarity_score):
     match_row = (result.data or [{}])[0]
     match_id = match_row.get("id")
 
-    # แจ้งเตือนเจ้าของทั้งสองฝั่ง พร้อมแนบ match_id ให้กดยืนยันได้ 
+    # แจ้งเตือนเจ้าของทั้งสองฝั่ง พร้อมแนบ match_id ให้กดยืนยันได้
     _notify_match_owners(lost_item_id, found_item_id, match_id)
 
     return result.data
@@ -389,6 +413,9 @@ def confirm_match(match_id: str):
     lost_item_id = match["lost_item_id"]
     found_item_id = match["found_item_id"]
 
+    if _has_handover_in_progress(lost_item_id) or _has_handover_in_progress(found_item_id):
+        return {"success": False, "error": "ของชิ้นนี้กำลังอยู่ระหว่างส่งมอบกับคนอื่นอยู่"}
+
     supabase.table("matches").update({"status": "confirmed"}).eq("id", match_id).execute()
 
     _notify_match_owner_confirmed(lost_item_id, found_item_id)
@@ -402,7 +429,8 @@ def confirm_match(match_id: str):
 def reject_match(match_id: str):
     """เจ้าของของหายเช็กแล้วพบว่าไม่ใช่ของตัวเอง — ยกเลิกแมทช์นี้ทิ้ง (status='rejected')
     ไอเทมทั้งคู่ยัง active ตามปกติ ไม่แจ้งเตือนอีกฝั่ง เพราะไม่ใช่เรื่องที่เขาต้องรู้
-    (ของของเขาก็ยังรอเจ้าของที่ถูกต้องต่อไป ระบบจะยังแมทช์กับของหายอื่นๆ ที่เข้ามาใหม่ได้ตามปกติ)"""
+    (ของของเขาก็ยังรอเจ้าของที่ถูกต้องต่อไป ระบบจะยังแมทช์กับของหายอื่นๆ ที่เข้ามาใหม่ได้ตามปกติ)
+    ลบแจ้งเตือนของแมทช์นี้ทั้งสองฝั่งทิ้งด้วย ไม่ให้ค้างชวนไปกดยืนยันแมทช์ที่ยกเลิกแล้ว"""
     match_res = (
         supabase.table("matches").select("*").eq("id", match_id).maybe_single().execute()
     )
@@ -413,6 +441,7 @@ def reject_match(match_id: str):
         return {"success": False, "error": "แมทช์นี้ถูกดำเนินการไปแล้ว"}
 
     supabase.table("matches").update({"status": "rejected"}).eq("id", match_id).execute()
+    supabase.table("notifications").delete().eq("match_id", match_id).execute()
     return {"success": True}
 
 
@@ -440,6 +469,7 @@ def complete_match(match_id: str, confirming_user_id: str = None):
 
     update_item_status(lost_item_id, "matched")
     update_item_status(found_item_id, "matched")
+    _reject_open_matches([lost_item_id, found_item_id], keep_match_id=match_id)
 
     _notify_match_completed(lost_item_id, found_item_id, confirming_user_id)
 
@@ -458,7 +488,7 @@ def claim_item(item_id: str, claimant_user_id: str):
     ขั้นตอนนี้แค่บันทึกลง table claims (status='pending') + แจ้งเตือนเจ้าของโพสต์
     ยังไม่ปิดเคสทันที ต้องรอฝ่ายใดฝ่ายหนึ่งกด "ได้รับของแล้ว" ก่อน (ดู confirm_claim ด้านล่าง)"""
     item_res = (
-        supabase.table("items").select("id, type, title, user_id")
+        supabase.table("items").select("id, type, title, user_id, status")
         .eq("id", item_id).maybe_single().execute()
     )
     item_data = item_res.data if item_res else None
@@ -468,6 +498,12 @@ def claim_item(item_id: str, claimant_user_id: str):
     owner_id = item_data.get("user_id")
     if not owner_id:
         return {"success": False, "error": "โพสต์นี้ไม่มีเจ้าของที่ระบุไว้ แจ้งเตือนไม่ได้"}
+    if owner_id == claimant_user_id:
+        return {"success": False, "error": "อ้างสิทธิ์โพสต์ของตัวเองไม่ได้"}
+    if item_data.get("status") == "matched":
+        return {"success": False, "error": "เคสนี้ปิดไปแล้ว"}
+    if _has_handover_in_progress(item_id):
+        return {"success": False, "error": "โพสต์นี้กำลังอยู่ระหว่างส่งมอบกับคนอื่นอยู่"}
 
     item_type = item_data.get("type")
 
@@ -705,6 +741,7 @@ def _close_claimant_own_post(claimant_user_id: str, claimed_item_type: str):
 
         own_item = own_posts[0]
         update_item_status(own_item["id"], "matched")
+        _reject_open_matches([own_item["id"]])
 
         create_notification(
             user_id=claimant_user_id,
@@ -745,8 +782,15 @@ def confirm_claim(claim_id: str, confirming_user_id: str = None):
     item_id = claim["item_id"]
     claimant_user_id = claim["claimant_user_id"]
 
-    supabase.table("claims").update({"status": "completed"}).eq("id", claim_id).execute()
+    # อัปเดตเฉพาะตอนที่ยัง pending กันกดซ้ำ/สองฝ่ายกดพร้อมกันแล้วทำงานซ้ำ
+    updated = (
+        supabase.table("claims").update({"status": "completed"})
+        .eq("id", claim_id).eq("status", "pending").execute()
+    )
+    if not updated.data:
+        return {"success": False, "error": "ยืนยันการส่งมอบไปแล้ว"}
     update_item_status(item_id, "matched")
+    _reject_open_matches([item_id])
 
     item_res = supabase.table("items").select("type, title, user_id").eq("id", item_id).maybe_single().execute()
     item_data = item_res.data if item_res else {}
@@ -769,3 +813,162 @@ def confirm_claim(claim_id: str, confirming_user_id: str = None):
         )
 
     return {"success": True, "item_id": item_id}
+
+def _reject_open_matches(item_ids: list, keep_match_id=None):
+    """ปิดเคสแล้ว: ยกเลิกแมทช์อื่นของโพสต์เหล่านี้ที่ยังค้าง (pending/confirmed) และลบแจ้งเตือนของแมทช์นั้น
+    ไม่งั้นโพสต์อีกฝั่งจะค้างรอแมทช์ที่ไม่มีวันจบ"""
+    ids = [str(i) for i in item_ids if i]
+    if not ids:
+        return
+    id_list = ",".join(ids)
+    try:
+        open_rows = (
+            supabase.table("matches").select("id")
+            .or_(f"lost_item_id.in.({id_list}),found_item_id.in.({id_list})")
+            .in_("status", ["pending", "confirmed"]).execute()
+        ).data or []
+        match_ids = [m["id"] for m in open_rows if str(m["id"]) != str(keep_match_id)]
+        if not match_ids:
+            return
+        supabase.table("matches").update({"status": "rejected"}).in_("id", match_ids).execute()
+        supabase.table("notifications").delete().in_("match_id", match_ids).execute()
+    except Exception as e:
+        print(f"[_reject_open_matches] error: {e}")
+
+
+def _notify_handover_cancelled(user_id, item_id, title):
+    if not user_id:
+        return
+    create_notification(
+        user_id=user_id,
+        item_id=item_id,
+        matched_item_id=None,
+        title="การส่งมอบถูกยกเลิก",
+        message=f'การส่งมอบ "{title or "สิ่งของ"}" ถูกยกเลิก เพราะอีกฝ่ายแจ้งว่าไม่ใช่ของชิ้นเดียวกัน ประกาศของคุณยังเปิดอยู่',
+    )
+
+
+def cancel_match(match_id: str, user_id: str):
+    """ระหว่างรอส่งมอบ (confirmed) ฝ่ายใดฝ่ายหนึ่งกด "ย้อนไปตามหาใหม่" เมื่อไปเจอกันแล้วไม่ใช่ของชิ้นนี้
+    แมทช์เป็น rejected โพสต์ทั้งสองยัง active และแจ้งอีกฝ่าย"""
+    match_res = supabase.table("matches").select("*").eq("id", match_id).maybe_single().execute()
+    match = match_res.data if match_res else None
+    if not match:
+        return {"success": False, "error": "ไม่พบแมทช์นี้"}
+
+    items = (
+        supabase.table("items").select("id, user_id, title")
+        .in_("id", [match["lost_item_id"], match["found_item_id"]]).execute()
+    ).data or []
+    by_id = {str(i["id"]): i for i in items}
+    lost = by_id.get(str(match["lost_item_id"])) or {}
+    found = by_id.get(str(match["found_item_id"])) or {}
+    if not user_id or user_id not in (lost.get("user_id"), found.get("user_id")):
+        return {"success": False, "error": "ทำได้เฉพาะคู่กรณีของแมทช์นี้"}
+
+    updated = (
+        supabase.table("matches").update({"status": "rejected"})
+        .eq("id", match_id).eq("status", "confirmed").execute()
+    )
+    if not updated.data:
+        return {"success": False, "error": "แมทช์นี้ไม่ได้อยู่ระหว่างส่งมอบแล้ว"}
+
+    other = found if user_id == lost.get("user_id") else lost
+    _notify_handover_cancelled(other.get("user_id"), other.get("id"), other.get("title"))
+    return {"success": True}
+
+
+def cancel_claim(claim_id: str, user_id: str):
+    """ระหว่างรอส่งมอบของแทร็กอ้างสิทธิ์ ฝ่ายใดฝ่ายหนึ่งกด "ย้อนไปตามหาใหม่"
+    ลบคำอ้างสิทธิ์ทิ้ง (ไม่เพิ่มสถานะใหม่ในตาราง claims) โพสต์ยัง active ให้คนอื่นอ้างสิทธิ์ได้อีก และแจ้งอีกฝ่าย"""
+    claim_res = supabase.table("claims").select("*").eq("id", claim_id).maybe_single().execute()
+    claim = claim_res.data if claim_res else None
+    if not claim:
+        return {"success": False, "error": "ไม่พบคำขอนี้"}
+
+    item_res = (
+        supabase.table("items").select("id, user_id, title")
+        .eq("id", claim["item_id"]).maybe_single().execute()
+    )
+    item = (item_res.data if item_res else None) or {}
+    owner_id = item.get("user_id")
+    claimant_id = claim.get("claimant_user_id")
+    if not user_id or user_id not in (owner_id, claimant_id):
+        return {"success": False, "error": "ทำได้เฉพาะคู่กรณีของคำขอนี้"}
+
+    deleted = (
+        supabase.table("claims").delete()
+        .eq("id", claim_id).eq("status", "pending").execute()
+    )
+    if not deleted.data:
+        return {"success": False, "error": "คำขอนี้ไม่ได้อยู่ระหว่างส่งมอบแล้ว"}
+
+    other_id = claimant_id if user_id == owner_id else owner_id
+    _notify_handover_cancelled(other_id, item.get("id"), item.get("title"))
+    return {"success": True}
+
+
+def create_handover_reminders(user_id: str):
+    """เตือนให้กลับมากดปิดเคส เมื่อค้างอยู่ระหว่างส่งมอบเกิน HANDOVER_REMINDER_DAYS วัน
+    ระบบไม่มีตัวตั้งเวลา จึงเช็กตอนผู้ใช้โหลดแจ้งเตือน และเตือนครั้งเดียวต่อโพสต์"""
+    if not user_id:
+        return
+    try:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=HANDOVER_REMINDER_DAYS)).isoformat()
+        my_items = (
+            supabase.table("items").select("id, title")
+            .eq("user_id", user_id).eq("status", "active").execute()
+        ).data or []
+        titles = {str(i["id"]): i.get("title") for i in my_items}
+        stale_item_ids = set()
+
+        if titles:
+            id_list = ",".join(titles)
+            confirmed = (
+                supabase.table("matches").select("lost_item_id, found_item_id")
+                .or_(f"lost_item_id.in.({id_list}),found_item_id.in.({id_list})")
+                .eq("status", "confirmed").lt("created_at", cutoff).execute()
+            ).data or []
+            for m in confirmed:
+                mine = m["lost_item_id"] if str(m["lost_item_id"]) in titles else m["found_item_id"]
+                stale_item_ids.add(str(mine))
+            claims_on_mine = (
+                supabase.table("claims").select("item_id")
+                .in_("item_id", list(titles)).eq("status", "pending").lt("created_at", cutoff).execute()
+            ).data or []
+            stale_item_ids.update(str(c["item_id"]) for c in claims_on_mine)
+
+        my_claims = (
+            supabase.table("claims").select("item_id")
+            .eq("claimant_user_id", user_id).eq("status", "pending").lt("created_at", cutoff).execute()
+        ).data or []
+        claimed_ids = [str(c["item_id"]) for c in my_claims]
+        if claimed_ids:
+            claimed_items = (
+                supabase.table("items").select("id, title").in_("id", claimed_ids).execute()
+            ).data or []
+            titles.update({str(i["id"]): i.get("title") for i in claimed_items})
+            stale_item_ids.update(claimed_ids)
+
+        if not stale_item_ids:
+            return
+        already = (
+            supabase.table("notifications").select("item_id")
+            .eq("user_id", user_id).in_("item_id", list(stale_item_ids))
+            .like("message", f"{REMINDER_PREFIX}%").execute()
+        ).data or []
+        reminded = {str(n["item_id"]) for n in already}
+
+        for item_id in stale_item_ids - reminded:
+            create_notification(
+                user_id=user_id,
+                item_id=item_id,
+                matched_item_id=None,
+                title="อย่าลืมกดปิดเคส",
+                message=(
+                    f'{REMINDER_PREFIX} ส่งมอบ "{titles.get(item_id) or "สิ่งของ"}" กันเรียบร้อยแล้วหรือยัง? '
+                    'ถ้าเรียบร้อยแล้วกดยืนยันเพื่อปิดเคส ถ้าไม่ใช่ของชิ้นนี้ กด "ย้อนไปตามหาใหม่"'
+                ),
+            )
+    except Exception as e:
+        print(f"[create_handover_reminders] error: {e}")

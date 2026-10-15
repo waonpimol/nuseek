@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException, Form
-from nuseek.tools.supabase_tool import confirm_match, reject_match, complete_match, claim_item, confirm_claim
+from nuseek.tools.supabase_tool import (
+    confirm_match, reject_match, complete_match, cancel_match, claim_item, confirm_claim, cancel_claim,
+)
 
 router = APIRouter()
 
@@ -44,4 +46,20 @@ def confirm_receipt(claim_id: str, user_id: str = Form(...)):
     result = confirm_claim(claim_id, user_id)
     if not result.get("success"):
         raise HTTPException(status_code=404, detail=result.get("error", "ยืนยันไม่สำเร็จ"))
+    return result
+
+@router.post("/matches/{match_id}/cancel")
+def cancel(match_id: str, user_id: str = Form(...)):
+    """ระหว่างรอส่งมอบ: กด "ย้อนไปตามหาใหม่" เมื่อไปเจอกันแล้วไม่ใช่ของชิ้นนี้"""
+    result = cancel_match(match_id, user_id)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "ยกเลิกไม่สำเร็จ"))
+    return result
+
+
+@router.post("/claims/{claim_id}/cancel")
+def cancel_receipt(claim_id: str, user_id: str = Form(...)):
+    result = cancel_claim(claim_id, user_id)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "ยกเลิกไม่สำเร็จ"))
     return result

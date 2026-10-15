@@ -35,3 +35,10 @@ export function formatFullDate(dateString: string): string {
     minute: "2-digit",
   });
 }
+// ต้องตรงกับ POST_TTL_DAYS ใน backend: ประกาศที่เปิดไว้นานกว่านี้ถูกซ่อนจากหน้ารวม/ผลค้นหา
+export const POST_TTL_DAYS = 30;
+
+export function isExpiredPost(post: { status?: string; created_at?: string }): boolean {
+  if (post.status === "matched" || !post.created_at) return false;
+  return Date.now() - parseAsUtc(post.created_at).getTime() > POST_TTL_DAYS * 24 * 60 * 60 * 1000;
+}

@@ -1,6 +1,6 @@
 import json
 
-from nuseek.tools.supabase_tool import supabase, attach_image_url, search_by_embedding
+from nuseek.tools.supabase_tool import supabase, attach_image_url, search_by_embedding, listing_cutoff_iso
 
  # ไม่ดึง embedding เพราะเป็นเวกเตอร์ขนาดใหญ่ที่ frontend ไม่ใช้ และทำให้ query ช้า
 
@@ -22,15 +22,15 @@ def _attach_reporter_name(row: dict) -> dict:
 
 
 def get_all_items():
-    """หน้า 'ประกาศทั้งหมด' — แสดงเฉพาะไอเทมที่ยัง active เท่านั้น
-    (ไอเทมที่แมทช์กันแล้วจะถูก set เป็น status='matched' อัตโนมัติใน save_match
-    เลยไม่โผล่ที่นี่ แต่ข้อมูลยังอยู่ครบ ดึงผ่าน get_items_by_user ได้)"""
+    """หน้า 'ประกาศทั้งหมด' — แสดงเฉพาะไอเทมที่ยัง active และยังไม่หมดอายุ (POST_TTL_DAYS)
+    ไอเทมที่ปิดเคสหรือหมดอายุแล้วยังอยู่ครบ ดึงผ่าน get_items_by_user ได้"""
 
     result = (
         supabase
         .table("items")
         .select(ITEM_COLUMNS)
         .eq("status", "active")
+        .gte("created_at", listing_cutoff_iso())
         .execute()
     )
 
@@ -192,7 +192,7 @@ def _attach_pending_claim(row: dict) -> dict:
 
 
 def get_item_by_id(item_id: str):
- 
+
     result = (
         supabase
         .table("items")
@@ -201,7 +201,7 @@ def get_item_by_id(item_id: str):
         .maybe_single()
         .execute()
     )
- 
+
     if not result or not result.data:
         return None
     row = _attach_pending_match(_attach_reporter_name(attach_image_url(result.data)))

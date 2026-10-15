@@ -68,7 +68,7 @@ export function useNotifications() {
 
   const confirm = useCallback(async (matchId: string) => {
     await confirmMatch(matchId);
-    await refresh(); 
+    await refresh();
   }, [refresh]);
 
   return { notifications, loading, unreadCount, refresh, markAllRead, markOneRead, confirm };

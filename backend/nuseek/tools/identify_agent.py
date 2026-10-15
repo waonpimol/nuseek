@@ -173,7 +173,7 @@ async def _identify_with_search(data: bytes, mime: str) -> tuple[str, list]:
 async def _identify_without_search(data: bytes, mime: str) -> str:
     """ทางสำรอง: ถ้าค้น Google ไม่ได้ (โควตา/tool ล้มเหลว) ให้ Gemini ดูรูปอย่างเดียว ไม่ค้นเว็บ
     ยังอ่านโลโก้/ข้อความบนตัวของได้ แต่ไม่ได้ยืนยันรุ่นจากเว็บ จึงลด confidence ลง (ดู identify_item)"""
-    from google import genai  
+    from google import genai
 
     client = genai.Client()
     response = await client.aio.models.generate_content(
