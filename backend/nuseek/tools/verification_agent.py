@@ -5,7 +5,7 @@ from google import genai
 from google.genai import types
 
 # ==========================================
-# LLM VERIFICATION AGENT 
+# LLM VERIFICATION AGENT
 # ==========================================
 #
 # หน้าที่ 2 อย่าง:

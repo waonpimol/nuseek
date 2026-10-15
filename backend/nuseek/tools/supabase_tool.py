@@ -53,7 +53,7 @@ def insert_item_direct(item_type, title, description, image_path, location, embe
         "type": item_type,
         "title": title,
         "description": description,
-        "image_path": image_path,          
+        "image_path": image_path,
         "image_paths": image_paths or ([image_path] if image_path else []),  # รูปทั้งหมด
         "location": location,
         "embedding": embedding,
@@ -338,7 +338,7 @@ def save_match(lost_item_id, found_item_id, similarity_score):
     match_row = (result.data or [{}])[0]
     match_id = match_row.get("id")
 
-    # แจ้งเตือนเจ้าของทั้งสองฝั่ง พร้อมแนบ match_id ให้กดยืนยันได้ 
+    # แจ้งเตือนเจ้าของทั้งสองฝั่ง พร้อมแนบ match_id ให้กดยืนยันได้
     _notify_match_owners(lost_item_id, found_item_id, match_id)
 
     return result.data
@@ -402,7 +402,8 @@ def confirm_match(match_id: str):
 def reject_match(match_id: str):
     """เจ้าของของหายเช็กแล้วพบว่าไม่ใช่ของตัวเอง — ยกเลิกแมทช์นี้ทิ้ง (status='rejected')
     ไอเทมทั้งคู่ยัง active ตามปกติ ไม่แจ้งเตือนอีกฝั่ง เพราะไม่ใช่เรื่องที่เขาต้องรู้
-    (ของของเขาก็ยังรอเจ้าของที่ถูกต้องต่อไป ระบบจะยังแมทช์กับของหายอื่นๆ ที่เข้ามาใหม่ได้ตามปกติ)"""
+    (ของของเขาก็ยังรอเจ้าของที่ถูกต้องต่อไป ระบบจะยังแมทช์กับของหายอื่นๆ ที่เข้ามาใหม่ได้ตามปกติ)
+    ลบแจ้งเตือนของแมทช์นี้ทั้งสองฝั่งทิ้งด้วย ไม่ให้ค้างชวนไปกดยืนยันแมทช์ที่ยกเลิกแล้ว"""
     match_res = (
         supabase.table("matches").select("*").eq("id", match_id).maybe_single().execute()
     )
@@ -413,6 +414,7 @@ def reject_match(match_id: str):
         return {"success": False, "error": "แมทช์นี้ถูกดำเนินการไปแล้ว"}
 
     supabase.table("matches").update({"status": "rejected"}).eq("id", match_id).execute()
+    supabase.table("notifications").delete().eq("match_id", match_id).execute()
     return {"success": True}
 
 
@@ -745,7 +747,13 @@ def confirm_claim(claim_id: str, confirming_user_id: str = None):
     item_id = claim["item_id"]
     claimant_user_id = claim["claimant_user_id"]
 
-    supabase.table("claims").update({"status": "completed"}).eq("id", claim_id).execute()
+    # อัปเดตเฉพาะตอนที่ยัง pending กันกดซ้ำ/สองฝ่ายกดพร้อมกันแล้วทำงานซ้ำ
+    updated = (
+        supabase.table("claims").update({"status": "completed"})
+        .eq("id", claim_id).eq("status", "pending").execute()
+    )
+    if not updated.data:
+        return {"success": False, "error": "ยืนยันการส่งมอบไปแล้ว"}
     update_item_status(item_id, "matched")
 
     item_res = supabase.table("items").select("type, title, user_id").eq("id", item_id).maybe_single().execute()

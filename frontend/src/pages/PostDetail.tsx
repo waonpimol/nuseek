@@ -623,7 +623,7 @@ export default function PostDetail() {
                 <div style={{ ...styles.matchBox, backgroundColor: '#F7FAFC', borderColor: '#E2E8F0' }}>
                   <div style={{ ...styles.matchBoxText, color: '#4A5568' }}>
                     <CheckCircle2 size={20} style={{ color: '#A0AEC0', flexShrink: 0 }} />
-                    <span>ยกเลิกแมทช์นี้แล้ว ถ้ามีของหายอื่นเข้ามาตรงกัน ระบบจะแจ้งเตือนให้ใหม่</span>
+                    <span>ยกเลิกแมทช์นี้แล้ว ถ้ามีคนแจ้งพบของที่ตรงกันเข้ามาใหม่ ระบบจะแจ้งเตือนให้</span>
                   </div>
                 </div>
               )}
