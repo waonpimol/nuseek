@@ -1,0 +1,6 @@
+# ไฟล์ที่ไม่อัปโหลดตอน gcloud run deploy --source
+.env
+**/.env
+**/__pycache__
+**/*.pyc
+nuseek/.adk
