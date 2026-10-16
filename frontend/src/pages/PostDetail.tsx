@@ -23,7 +23,7 @@ import {
   ChevronRight,
   Trash2
 } from 'lucide-react';
-import { getItem, confirmMatch, rejectMatch, completeMatch, claimItem, confirmClaim, cancelHandover, updateOwnItem, deleteOwnItem } from '../services/api';
+import { getItem, confirmMatch, rejectMatch, completeMatch, claimItem, confirmClaim, cancelHandover, updateOwnItem, deleteOwnItem, closeOwnItem } from '../services/api';
 import { formatRelativeTime, formatFullDate } from '../utils/format';
 import { getPlaceholderImage } from '../utils/placeholder';
 import NotificationBell from '../components/NotificationBell';
@@ -121,6 +121,8 @@ export default function PostDetail() {
   const [editError, setEditError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [closingPost, setClosingPost] = useState(false);
   // เมนู ⋯ ของเจ้าของโพสต์ (แก้ไข/ลบ)
   const [ownerMenuOpen, setOwnerMenuOpen] = useState(false);
   const ownerMenuRef = useRef<HTMLDivElement>(null);
@@ -371,6 +373,25 @@ export default function PostDetail() {
     }
   };
 
+  // ได้ของคืน / คืนเจ้าของแล้วนอกขั้นตอนส่งมอบในระบบ เจ้าของปิดประกาศเอง
+  const closeLabel = post?.type === "lost" ? "ได้ของคืนแล้ว" : "คืนเจ้าของแล้ว";
+  const handleClosePost = async () => {
+    if (!id || !currentUserId) return;
+    setClosingPost(true);
+    try {
+      await closeOwnItem(id, currentUserId);
+      setPost(await getItem(id));
+      setShowCloseConfirm(false);
+      setResultModal({ success: true, title: "ปิดประกาศแล้ว", message: "ประกาศนี้ปิดเคสแล้ว และนับเป็น \"พบเจ้าของแล้ว\" ในโปรไฟล์ของคุณ 🎉" });
+    } catch (err: any) {
+      console.error(err);
+      setShowCloseConfirm(false);
+      setResultModal({ success: false, title: "เกิดข้อผิดพลาด", message: err?.message || "ปิดประกาศไม่สำเร็จ ลองใหม่อีกครั้ง" });
+    } finally {
+      setClosingPost(false);
+    }
+  };
+
   const handleDeletePost = async () => {
     if (!id || !currentUserId) return;
     setDeleting(true);
@@ -573,6 +594,17 @@ export default function PostDetail() {
                             className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                           >
                             <Pencil size={15} /> แก้ไขประกาศ
+                          </button>
+                        )}
+                        {canEditPost && (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            disabled={closingPost}
+                            onClick={() => { setOwnerMenuOpen(false); setShowCloseConfirm(true); }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-green-700 hover:bg-green-50 transition disabled:opacity-50"
+                          >
+                            <CheckCircle2 size={15} /> {closeLabel}
                           </button>
                         )}
                         <button
@@ -858,6 +890,18 @@ export default function PostDetail() {
         onAction={handleDeletePost}
         confirmLabel="ยกเลิก"
         onConfirm={() => setShowDeleteConfirm(false)}
+      />
+
+      {/* modal ยืนยันก่อนเจ้าของปิดประกาศเอง */}
+      <ResultModal
+        open={showCloseConfirm}
+        success={true}
+        title={`${closeLabel}ใช่ไหม?`}
+        message="ประกาศนี้จะปิดเคส หายจากหน้าประกาศทั้งหมด และนับเป็น “พบเจ้าของแล้ว” ในโปรไฟล์ ถ้ามีแมทช์ที่ระบบจับคู่ค้างอยู่จะถูกยกเลิก"
+        actionLabel={closingPost ? "กำลังปิด..." : "ใช่ ปิดประกาศ"}
+        onAction={handleClosePost}
+        confirmLabel="ยกเลิก"
+        onConfirm={() => setShowCloseConfirm(false)}
       />
 
       {/* modal ยืนยัน "ไม่ใช่ของฉัน" ก่อนยิง reject จริง */}

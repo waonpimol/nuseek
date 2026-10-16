@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Form
 from services.item_service import get_all_items, get_item_by_id, get_items_by_user, get_similar_items
-from nuseek.tools.supabase_tool import update_own_item, delete_own_item
+from nuseek.tools.supabase_tool import update_own_item, delete_own_item, close_own_item
 from nuseek.tools.embedding_tool import embed_text
 
 router = APIRouter()
@@ -59,4 +59,12 @@ def delete_item(item_id: str, user_id: str = Form(...)):
     result = delete_own_item(item_id, user_id)
     if not result.get("success"):
         raise HTTPException(status_code=400, detail=result.get("error", "ลบไม่สำเร็จ"))
+    return result
+
+@router.post("/items/{item_id}/close")
+def close_item(item_id: str, user_id: str = Form(...)):
+    """เจ้าของปิดประกาศเอง เมื่อได้ของคืน/คืนเจ้าของแล้ว"""
+    result = close_own_item(item_id, user_id)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "ปิดประกาศไม่สำเร็จ"))
     return result

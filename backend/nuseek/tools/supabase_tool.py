@@ -1,4 +1,3 @@
-import json
 import os
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
@@ -713,75 +712,47 @@ def delete_own_item(item_id: str, user_id: str):
 # ==========================================
 # CLOSE CLAIMANT'S OWN ORPHANED POST (side-effect ของ confirm_claim)
 # ==========================================
-def _parse_embedding(value):
-    """pgvector ถูกส่งกลับมาเป็นสตริง "[0.1,0.2,...]" ต้องแปลงเป็น list ก่อนใช้"""
-    if isinstance(value, str):
-        try:
-            value = json.loads(value)
-        except ValueError:
-            return None
-    return value or None
-
-
-# ปิดโพสต์ของผู้อ้างสิทธิ์ให้อัตโนมัติ เฉพาะเมื่อคล้ายกับของที่เพิ่งปิดเคสอย่างน้อยเท่านี้ (เกณฑ์เดียวกับการจับคู่อัตโนมัติ)
-CLAIMANT_POST_MIN_SIMILARITY = 0.7
-
-
-def _close_claimant_own_post(claimant_user_id: str, claimed_item_id: str, claimed_item_type: str):
-    """ถ้าผู้อ้างสิทธิ์มีโพสต์ของตัวเอง (ประเภทตรงข้ามกับไอเทมที่เพิ่งปิดเคสไป) ค้างเป็น active
-    และ "คล้าย" กับไอเทมนั้นจริง (embedding ใกล้กันถึง CLAIMANT_POST_MIN_SIMILARITY) ถือว่าเป็นของชิ้นเดียวกัน
-    จึงปิดให้พร้อมกัน ไม่งั้นโพสต์เดิมของเขาจะค้าง active ตลอดไป
-    ถ้าไม่มีโพสต์ไหนคล้ายพอ จะไม่ปิดอะไรเลย (กันปิดโพสต์ของชิ้นอื่นผิด เช่น ปิดเคสพวงกุญแจแล้วไปปิดเมาส์)"""
-    if not claimant_user_id or not claimed_item_id or not claimed_item_type:
+def _remind_claimant_own_posts(claimant_user_id: str, claimed_item_type: str, claimed_title: str):
+    """ปิดเคสผ่านการอ้างสิทธิ์แล้ว ถ้าผู้อ้างสิทธิ์มีประกาศประเภทตรงข้ามค้างอยู่ (เช่น เขาเคยแจ้งของหายไว้เอง)
+    แค่แจ้งให้เขาเข้าไปปิดเอง ระบบไม่เดาเองว่าอันไหนคือของชิ้นเดียวกัน (เดาผิดแล้วไปปิดประกาศของชิ้นอื่น)"""
+    if not claimant_user_id or not claimed_item_type:
         return
-
     opposite_type = "found" if claimed_item_type == "lost" else "lost"
-
     try:
-        claimed_res = (
-            supabase.table("items").select("embedding")
-            .eq("id", claimed_item_id).maybe_single().execute()
-        )
-        claimed_vec = _parse_embedding((claimed_res.data or {}).get("embedding") if claimed_res else None)
-        if not claimed_vec:
-            return
-
         own_posts = (
-            supabase.table("items").select("id, title, embedding")
-            .eq("user_id", claimant_user_id)
-            .eq("type", opposite_type)
-            .eq("status", "active")
-            .execute()
+            supabase.table("items").select("id, title")
+            .eq("user_id", claimant_user_id).eq("type", opposite_type).eq("status", "active")
+            .order("created_at", desc=True).execute()
         ).data or []
-
-        best, best_score = None, 0.0
-        for post in own_posts:
-            vec = _parse_embedding(post.get("embedding"))
-            if not vec or len(vec) != len(claimed_vec):
-                continue
-            # embedding ถูก normalize ไว้แล้ว ผลคูณ dot จึงเท่ากับ cosine similarity
-            score = sum(a * b for a, b in zip(vec, claimed_vec))
-            if score > best_score:
-                best, best_score = post, score
-        if not best or best_score < CLAIMANT_POST_MIN_SIMILARITY:
+        if not own_posts:
             return
-
-        update_item_status(best["id"], "matched")
-        _reject_open_matches([best["id"]])
-
+        titles = ", ".join(f'"{p.get("title") or "ไม่ระบุชื่อ"}"' for p in own_posts[:3])
+        button = "ได้ของคืนแล้ว" if opposite_type == "lost" else "คืนเจ้าของแล้ว"
         create_notification(
             user_id=claimant_user_id,
-            item_id=best["id"],
+            item_id=own_posts[0]["id"],
             matched_item_id=None,
-            title="ปิดประกาศของคุณให้แล้ว",
+            title="อย่าลืมปิดประกาศของคุณ",
             message=(
-                f'ปิดเคสให้ประกาศ "{best.get("title") or "ของคุณ"}" ของคุณด้วยแล้ว '
-                f'เพราะน่าจะเป็นของชิ้นเดียวกับที่คุณเพิ่งปิดเคสไป '
-                f'ถ้าไม่ใช่ของชิ้นเดียวกัน ติดต่อทีมงานให้เปิดประกาศคืนได้เลย'
+                f'ถ้าประกาศ {titles} ของคุณเป็นของชิ้นเดียวกับ "{claimed_title or "สิ่งของ"}" ที่เพิ่งปิดเคสไป '
+                f'เข้าไปกด "{button}" ในเมนู ⋯ ของประกาศนั้นเพื่อปิดประกาศได้เลย'
             ),
         )
     except Exception as e:
-        print(f"[_close_claimant_own_post] error: {e}")
+        print(f"[_remind_claimant_own_posts] error: {e}")
+
+
+def close_own_item(item_id: str, user_id: str):
+    """เจ้าของปิดประกาศของตัวเอง เมื่อได้ของคืนหรือคืนเจ้าของแล้วนอกขั้นตอนส่งมอบในระบบ (เช่น มีคนโทรมาบอก)
+    ถ้ากำลังส่งมอบอยู่ (แมทช์ confirmed / คำอ้างสิทธิ์ค้าง) ต้องใช้ปุ่มของการส่งมอบแทน"""
+    item, err = _get_own_active_item(item_id, user_id)
+    if err:
+        return {"success": False, "error": err}
+    if _has_handover_in_progress(item_id):
+        return {"success": False, "error": "ประกาศนี้กำลังอยู่ระหว่างส่งมอบ ให้กดปุ่มในกล่องส่งมอบด้านล่างแทน"}
+    update_item_status(item_id, "matched")
+    _reject_open_matches([item_id])
+    return {"success": True}
 
 
 # ==========================================
@@ -796,8 +767,7 @@ def confirm_claim(claim_id: str, confirming_user_id: str = None):
     (ก่อนหน้านี้เคย hardcode ไว้ว่าแจ้งไปหาผู้อ้างสิทธิ์เท่านั้น ถ้าผู้อ้างสิทธิ์เป็นคนกดเอง
     เจ้าของโพสต์จะไม่มีทางรู้เลยว่าเคสปิดแล้ว)
 
-    ยังปิดโพสต์ของผู้อ้างสิทธิ์เองด้วย ถ้าเขามีโพสต์ประเภทตรงข้ามค้างเป็น active อยู่
-    (ดู _close_claimant_own_post ด้านบน — กันไม่ให้โพสต์เก่าค้าง active ตลอดไปทั้งที่เคสจบแล้ว)"""
+    ถ้าผู้อ้างสิทธิ์มีโพสต์ประเภทตรงข้ามค้างอยู่ จะแจ้งให้เขาเข้าไปปิดเอง (ดู _remind_claimant_own_posts)"""
     claim_res = (
         supabase.table("claims").select("*").eq("id", claim_id).maybe_single().execute()
     )
@@ -824,7 +794,7 @@ def confirm_claim(claim_id: str, confirming_user_id: str = None):
     owner_id = item_data.get("user_id")
     item_type = item_data.get("type")
 
-    _close_claimant_own_post(claimant_user_id, item_id, item_type)
+    _remind_claimant_own_posts(claimant_user_id, item_type, title)
 
     # แจ้งไปหา "อีกฝั่งที่ไม่ได้กด" เสมอ
     notify_target = claimant_user_id if confirming_user_id == owner_id else owner_id
