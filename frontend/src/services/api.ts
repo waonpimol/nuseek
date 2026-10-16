@@ -1,4 +1,5 @@
-const API = "http://127.0.0.1:8000";
+// ตั้ง VITE_API_URL ตอน deploy (เช่นบน Vercel) ถ้าไม่ตั้งจะใช้ backend ในเครื่อง
+const API = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/+$/, "");
 
 export async function getItems() {
   const response = await fetch(`${API}/items`);
