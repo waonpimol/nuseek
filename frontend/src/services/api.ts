@@ -279,6 +279,11 @@ export async function deleteOwnItem(itemId: string, userId: string) {
   return postForm(`/items/${itemId}/delete`, { user_id: userId }, "ลบไม่สำเร็จ");
 }
 
+// เจ้าของปิดประกาศเอง (ได้ของคืน / คืนเจ้าของแล้ว)
+export async function closeOwnItem(itemId: string, userId: string) {
+  return postForm(`/items/${itemId}/close`, { user_id: userId }, "ปิดประกาศไม่สำเร็จ");
+}
+
 // ให้ AI (ADK + Google Search) ช่วยระบุชื่อ/ยี่ห้อ/รุ่นของสิ่งของจากรูป ใช้ตอนแจ้งโพสต์
 // คืน title ว่างถ้าระบุไม่ได้ (ผลเป็นแค่คำแนะนำ ผู้ใช้เลือกเติมช่องชื่อเอง)
 export async function identifyItem(
