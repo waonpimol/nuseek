@@ -1,4 +1,4 @@
-# ใช้ตอน deploy บน Hugging Face Spaces (Dockerfile) — เวอร์ชันตรงกับ uv.lock
+# ใช้ตอน deploy ด้วย Dockerfile (Google Cloud Run) — เวอร์ชันตรงกับ uv.lock
 # torch ติดตั้งแยกใน Dockerfile จาก index ของ PyTorch แบบ CPU เพื่อให้ image เล็กลงมาก
 fastapi==0.138.1
 uvicorn==0.49.0
