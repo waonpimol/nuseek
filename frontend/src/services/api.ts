@@ -1,4 +1,5 @@
-const API = "http://127.0.0.1:8000";
+// ตั้ง VITE_API_URL ตอน deploy (เช่นบน Vercel) ถ้าไม่ตั้งจะใช้ backend ในเครื่อง
+const API = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/+$/, "");
 
 export async function getItems() {
   const response = await fetch(`${API}/items`);
@@ -163,7 +164,38 @@ export async function confirmClaim(claimId: string, userId: string) {
   });
 
   if (!response.ok) {
-    throw new Error("ยืนยันไม่สำเร็จ");
+    let detail = "ยืนยันไม่สำเร็จ";
+    try {
+      const errBody = await response.json();
+      if (errBody?.detail) detail = errBody.detail;
+    } catch {
+      // ไม่ใช่ JSON ก็ปล่อยข้อความ default ไว้
+    }
+    throw new Error(detail);
+  }
+
+  return await response.json();
+}
+
+// "ย้อนไปตามหาใหม่" ระหว่างรอส่งมอบ: kind = "matches" (แมทช์จาก AI) หรือ "claims" (อ้างสิทธิ์)
+export async function cancelHandover(kind: "matches" | "claims", id: string, userId: string) {
+  const formData = new FormData();
+  formData.append("user_id", userId);
+
+  const response = await fetch(`${API}/${kind}/${id}/cancel`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let detail = "ยกเลิกไม่สำเร็จ";
+    try {
+      const errBody = await response.json();
+      if (errBody?.detail) detail = errBody.detail;
+    } catch {
+      // ไม่ใช่ JSON ก็ปล่อยข้อความ default ไว้
+    }
+    throw new Error(detail);
   }
 
   return await response.json();
@@ -245,6 +277,11 @@ export async function updateOwnItem(
 // เจ้าของลบโพสต์ที่ลงผิดทิ้งถาวร (ทำได้เฉพาะโพสต์ที่ยังไม่จบเคส)
 export async function deleteOwnItem(itemId: string, userId: string) {
   return postForm(`/items/${itemId}/delete`, { user_id: userId }, "ลบไม่สำเร็จ");
+}
+
+// เจ้าของปิดประกาศเอง (ได้ของคืน / คืนเจ้าของแล้ว)
+export async function closeOwnItem(itemId: string, userId: string) {
+  return postForm(`/items/${itemId}/close`, { user_id: userId }, "ปิดประกาศไม่สำเร็จ");
 }
 
 // ให้ AI (ADK + Google Search) ช่วยระบุชื่อ/ยี่ห้อ/รุ่นของสิ่งของจากรูป ใช้ตอนแจ้งโพสต์

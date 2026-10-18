@@ -23,7 +23,7 @@ import {
   ChevronRight,
   Trash2
 } from 'lucide-react';
-import { getItem, confirmMatch, rejectMatch, completeMatch, claimItem, confirmClaim, updateOwnItem, deleteOwnItem } from '../services/api';
+import { getItem, confirmMatch, rejectMatch, completeMatch, claimItem, confirmClaim, cancelHandover, updateOwnItem, deleteOwnItem, closeOwnItem } from '../services/api';
 import { formatRelativeTime, formatFullDate } from '../utils/format';
 import { getPlaceholderImage } from '../utils/placeholder';
 import NotificationBell from '../components/NotificationBell';
@@ -109,6 +109,9 @@ export default function PostDetail() {
   const [claimed, setClaimed] = useState(false);
   const [confirmingReceipt, setConfirmingReceipt] = useState(false);
   const [completingMatch, setCompletingMatch] = useState(false);
+  // "ย้อนไปตามหาใหม่" ระหว่างรอส่งมอบ: เก็บว่ากำลังยกเลิกแทร็กไหน (แมทช์ AI หรืออ้างสิทธิ์) เพื่อเปิด modal ยืนยัน
+  const [cancelTarget, setCancelTarget] = useState<"matches" | "claims" | null>(null);
+  const [cancellingHandover, setCancellingHandover] = useState(false);
   // แกลเลอรีรูป: index ของรูปที่กำลังดูอยู่ (รีเซ็ตเป็นรูปแรกเมื่อเปลี่ยนโพสต์)
   const [activeImage, setActiveImage] = useState(0);
   const galleryRef = useRef<HTMLDivElement>(null);
@@ -118,6 +121,8 @@ export default function PostDetail() {
   const [editError, setEditError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [closingPost, setClosingPost] = useState(false);
   // เมนู ⋯ ของเจ้าของโพสต์ (แก้ไข/ลบ)
   const [ownerMenuOpen, setOwnerMenuOpen] = useState(false);
   const ownerMenuRef = useRef<HTMLDivElement>(null);
@@ -173,17 +178,17 @@ export default function PostDetail() {
     return () => { cancelled = true; };
   }, [id]);
 
-  // ถ้าไอเทมนี้มีแมทช์จากระบบ AI auto-match ทำงานอยู่แล้ว (ไม่ว่าจะสเตจ 1 หรือ 2) ให้ซ่อนปุ่ม/กล่อง
-  // ของแทร็ก claim (ค้นหาด้วยรูป) ทั้งหมดไปเลย กันไม่ให้โผล่มาซ้อนกันสองกล่องแล้วงงว่าต้องกดปุ่มไหน
-  // (เคสนี้เกิดได้จริง ถ้ามีคนเจอโพสต์เดียวกันทั้งผ่านการค้นหาด้วยรูปและผ่านระบบแมทช์อัตโนมัติพร้อมกัน)
-  const hasActiveMatchTrack = !!post?.pending_match_id || !!post?.confirmed_match_id;
+  // ล็อกโพสต์เฉพาะตอนกำลังส่งมอบของ (แมทช์ confirmed หรือมีคำอ้างสิทธิ์ค้าง) ฝั่งไหนเข้าขั้นส่งมอบก่อนได้ไป
+  // แมทช์ที่ AI แค่เสนอ (pending) ไม่ล็อก เจ้าของตัวจริงที่หาเจอเองยังกดอ้างสิทธิ์ได้
+  const inHandover = !!post?.confirmed_match_id || !!post?.pending_claim_id;
 
   // ปุ่มยืนยันโชว์ให้ "เจ้าของฝั่งของหาย" ในแมทช์นี้เท่านั้น ไม่ว่าจะกำลังดูโพสต์ไหนอยู่ก็ตาม
   // (ปกติจะมาจากการกดแจ้งเตือน แล้วเด้งมาที่โพสต์ "ของที่พบ" ของอีกฝั่ง ซึ่งไม่ใช่โพสต์ของเราเอง)
   const showConfirmButton =
     !!currentUserId &&
     !!post?.pending_match_id &&
-    post?.pending_match_lost_owner_id === currentUserId;
+    post?.pending_match_lost_owner_id === currentUserId &&
+    !inHandover;
 
   // สเตจ 1 เท่านั้น: แค่ยืนยัน "ตัวตน" ว่าใช่ของจริง ยังไม่ปิดเคส ไอเทมยังคง active ตามปกติ
   // รอสเตจ 2 (ปุ่ม "ได้รับของแล้ว") อีกทีถึงจะปิดเคสจริง
@@ -228,13 +233,12 @@ export default function PostDetail() {
   //   - โพสต์ "ของที่พบ" → ปุ่ม "ใช่ของฉัน" (คนที่ทำของหายกดอ้างว่าเป็นของตัวเอง)
   //   - โพสต์ "ของหาย"   → ปุ่ม "เจอของชิ้นนี้แล้ว" (คนที่เจอของกดแจ้งเจ้าของ)
   // โชว์ให้ทุกโพสต์ที่ยังไม่จบเคส, ไม่ใช่โพสต์ของตัวเอง, ยังไม่มีใครอ้างสิทธิ์ค้างอยู่
-  // และยังไม่มีแมทช์จากระบบ AI ทำงานอยู่แล้ว (ดู hasActiveMatchTrack ด้านบน)
+  // และโพสต์ไม่ได้อยู่ระหว่างส่งมอบ (ดู inHandover ด้านบน)
   const showClaimButton =
     !!currentUserId &&
     post?.status !== "matched" &&
     post?.user_id !== currentUserId &&
-    !post?.pending_claim_id &&
-    !hasActiveMatchTrack;
+    !inHandover;
 
   const handleClaim = async () => {
     if (!id || !currentUserId) return;
@@ -263,7 +267,7 @@ export default function PostDetail() {
   // กดแล้วถึงจะปิดเคสจริง: เปลี่ยนเป็น matched, หายจากหน้าประกาศทั่วไป, ไปนับใน KPI หน้าโปรไฟล์แทน
   const isPostOwner = !!currentUserId && post?.user_id === currentUserId;
   const isClaimant = !!currentUserId && post?.pending_claim_claimant_id === currentUserId;
-  const showConfirmReceiptButton = !!post?.pending_claim_id && (isPostOwner || isClaimant) && !hasActiveMatchTrack;
+  const showConfirmReceiptButton = !!post?.pending_claim_id && (isPostOwner || isClaimant) && !post?.confirmed_match_id;
 
   // ทิศทางการส่งมอบสลับตามประเภทโพสต์:
   //   - ของที่พบ → เจ้าของโพสต์ส่งคืน / ผู้อ้างสิทธิ์รับคืน
@@ -314,6 +318,27 @@ export default function PostDetail() {
     }
   };
 
+  const handleCancelHandover = async () => {
+    const handoverId = cancelTarget === "matches" ? post?.confirmed_match_id : post?.pending_claim_id;
+    if (!cancelTarget || !handoverId || !currentUserId) return;
+    setCancellingHandover(true);
+    try {
+      await cancelHandover(cancelTarget, handoverId, currentUserId);
+      setPost(await getItem(id as string));
+      setResultModal({
+        success: true,
+        title: "กลับไปตามหาใหม่แล้ว",
+        message: "ยกเลิกการส่งมอบแล้ว ประกาศยังเปิดอยู่ตามเดิม และแจ้งอีกฝ่ายให้ทราบแล้ว",
+      });
+    } catch (err: any) {
+      console.error(err);
+      setResultModal({ success: false, title: "เกิดข้อผิดพลาด", message: err?.message || "ยกเลิกไม่สำเร็จ ลองใหม่อีกครั้ง" });
+    } finally {
+      setCancellingHandover(false);
+      setCancelTarget(null);
+    }
+  };
+
   const galleryImages: string[] = post?.image_urls?.length ? post.image_urls : post?.image_url ? [post.image_url] : [];
   const goToImage = (i: number) => {
     const el = galleryRef.current;
@@ -345,6 +370,25 @@ export default function PostDetail() {
       setEditError(err?.message || "แก้ไขไม่สำเร็จ ลองใหม่อีกครั้ง");
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  // ได้ของคืน / คืนเจ้าของแล้วนอกขั้นตอนส่งมอบในระบบ เจ้าของปิดประกาศเอง
+  const closeLabel = post?.type === "lost" ? "ได้ของคืนแล้ว" : "คืนเจ้าของแล้ว";
+  const handleClosePost = async () => {
+    if (!id || !currentUserId) return;
+    setClosingPost(true);
+    try {
+      await closeOwnItem(id, currentUserId);
+      setPost(await getItem(id));
+      setShowCloseConfirm(false);
+      setResultModal({ success: true, title: "ปิดประกาศแล้ว", message: "ประกาศนี้ปิดเคสแล้ว และนับเป็น \"พบเจ้าของแล้ว\" ในโปรไฟล์ของคุณ 🎉" });
+    } catch (err: any) {
+      console.error(err);
+      setShowCloseConfirm(false);
+      setResultModal({ success: false, title: "เกิดข้อผิดพลาด", message: err?.message || "ปิดประกาศไม่สำเร็จ ลองใหม่อีกครั้ง" });
+    } finally {
+      setClosingPost(false);
     }
   };
 
@@ -552,6 +596,17 @@ export default function PostDetail() {
                             <Pencil size={15} /> แก้ไขประกาศ
                           </button>
                         )}
+                        {canEditPost && (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            disabled={closingPost}
+                            onClick={() => { setOwnerMenuOpen(false); setShowCloseConfirm(true); }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-green-700 hover:bg-green-50 transition disabled:opacity-50"
+                          >
+                            <CheckCircle2 size={15} /> {closeLabel}
+                          </button>
+                        )}
                         <button
                           type="button"
                           role="menuitem"
@@ -651,6 +706,13 @@ export default function PostDetail() {
                         ? "ได้รับของคืนแล้ว ปิดเคสนี้"
                         : "ส่งคืนของแล้ว ปิดเคสนี้"}
                   </button>
+                  <button
+                    onClick={() => setCancelTarget("matches")}
+                    disabled={completingMatch || cancellingHandover}
+                    style={styles.rejectMatchBtn}
+                  >
+                    ย้อนไปตามหาใหม่
+                  </button>
                 </div>
               )}
 
@@ -682,6 +744,13 @@ export default function PostDetail() {
                     style={styles.confirmMatchBtn}
                   >
                     {confirmingReceipt ? "กำลังยืนยัน..." : receiptStageBtnLabel}
+                  </button>
+                  <button
+                    onClick={() => setCancelTarget("claims")}
+                    disabled={confirmingReceipt || cancellingHandover}
+                    style={styles.rejectMatchBtn}
+                  >
+                    ย้อนไปตามหาใหม่
                   </button>
                 </div>
               )}
@@ -823,6 +892,18 @@ export default function PostDetail() {
         onConfirm={() => setShowDeleteConfirm(false)}
       />
 
+      {/* modal ยืนยันก่อนเจ้าของปิดประกาศเอง */}
+      <ResultModal
+        open={showCloseConfirm}
+        success={true}
+        title={`${closeLabel}ใช่ไหม?`}
+        message="ประกาศนี้จะปิดเคส หายจากหน้าประกาศทั้งหมด และนับเป็น “พบเจ้าของแล้ว” ในโปรไฟล์ ถ้ามีแมทช์ที่ระบบจับคู่ค้างอยู่จะถูกยกเลิก"
+        actionLabel={closingPost ? "กำลังปิด..." : "ใช่ ปิดประกาศ"}
+        onAction={handleClosePost}
+        confirmLabel="ยกเลิก"
+        onConfirm={() => setShowCloseConfirm(false)}
+      />
+
       {/* modal ยืนยัน "ไม่ใช่ของฉัน" ก่อนยิง reject จริง */}
       <ResultModal
         open={showRejectConfirm}
@@ -836,6 +917,18 @@ export default function PostDetail() {
         }}
         confirmLabel="ยกเลิก"
         onConfirm={() => setShowRejectConfirm(false)}
+      />
+
+      {/* modal ยืนยัน "ย้อนไปตามหาใหม่" ก่อนยกเลิกการส่งมอบจริง */}
+      <ResultModal
+        open={cancelTarget !== null}
+        success={false}
+        title="ไม่ใช่ของชิ้นนี้ใช่ไหม?"
+        message="ระบบจะยกเลิกการส่งมอบนี้ ประกาศทั้งสองฝั่งยังเปิดอยู่ตามเดิม และจะแจ้งอีกฝ่ายให้ทราบ"
+        actionLabel={cancellingHandover ? "กำลังดำเนินการ..." : "ใช่ ย้อนไปตามหาใหม่"}
+        onAction={handleCancelHandover}
+        confirmLabel="ไม่ใช่"
+        onConfirm={() => setCancelTarget(null)}
       />
 
       {/* modal แจ้งผลลัพธ์การกระทำต่างๆ ในหน้านี้ (แทน alert() ของเบราว์เซอร์) */}

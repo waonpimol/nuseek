@@ -1,7 +1,8 @@
-from nuseek.tools.supabase_tool import supabase
+from nuseek.tools.supabase_tool import supabase, create_handover_reminders
 
 
 def get_notifications(user_id: str, limit: int = 30):
+    create_handover_reminders(user_id)
     result = (
         supabase
         .table("notifications")

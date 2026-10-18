@@ -23,6 +23,7 @@ import PostSkeletonList from "../components/PostSkeleton";
 import PostCard from "../components/PostGridCard";
 import EmptyState from "../components/EmptyState";
 import ResultModal from "../components/ResultModal";
+import { isExpiredPost } from "../utils/format";
 
 interface UserProfile {
   display_name: string;
@@ -393,7 +394,7 @@ export default function Profile() {
                       : "grid";
                 return (
                   <div key={item.id} className={visibility}>
-                    <PostCard post={item} matched={item.status === "matched"} />
+                    <PostCard post={item} matched={item.status === "matched"} expired={isExpiredPost(item)} />
                   </div>
                 );
               })}
