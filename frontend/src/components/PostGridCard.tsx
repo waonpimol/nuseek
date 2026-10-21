@@ -173,7 +173,7 @@ export default function PostCard({
 						<Clock size={13} className="text-gray-400 flex-shrink-0" />
 						<span>
 							{matched && post.resolved_at
-								? `จบเคส ${formatRelativeTime(post.resolved_at)}`
+								? `ปิดประกาศ ${formatRelativeTime(post.resolved_at)}`
 								: post.created_at ? formatRelativeTime(post.created_at) : "-"}
 						</span>
 					</div>

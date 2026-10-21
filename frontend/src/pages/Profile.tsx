@@ -374,7 +374,7 @@ export default function Profile() {
             ) : activeTab === "success" ? (
               <EmptyState
                 icon={PackageSearch}
-                title="ยังไม่มีเคสที่ปิดแล้ว"
+                title="ยังไม่มีประกาศที่ปิดแล้ว"
                 description="เมื่อพบเจ้าของหรือได้ของคืนแล้ว ประกาศนั้นจะมาอยู่ที่นี่"
               />
             ) : (
