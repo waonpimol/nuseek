@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import LocationInput from './LocationInput';
+import { LOCATIONS } from '../utils/locations';
 
 export interface EditPostValues {
 	title: string;
@@ -59,7 +59,18 @@ export default function EditPostModal({ open, initial, saving, error, onSave, on
 				/>
 
 				<label style={styles.label}>สถานที่</label>
-				<LocationInput value={location} onChange={setLocation} inputStyle={styles.input} />
+				<input
+					type="text"
+					list="edit-location-suggestions"
+					value={location}
+					onChange={(e) => setLocation(e.target.value)}
+					style={styles.input}
+				/>
+				<datalist id="edit-location-suggestions">
+					{LOCATIONS.map((loc) => (
+						<option key={loc.value} value={loc.value} />
+					))}
+				</datalist>
 
 				<p style={styles.hint}>แก้ไขรูปไม่ได้ ถ้ารูปผิดให้ลบประกาศแล้วลงใหม่</p>
 				{error && <p style={styles.error}>{error}</p>}

@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { reportItem } from '../services/api';
 import { supabase } from '../services/supabaseClient';
-import LocationInput from '../components/LocationInput';
+import { LOCATIONS } from '../utils/locations';
 import NotificationBell from '../components/NotificationBell';
 import { hasContactInfo } from '../utils/profilecontact';
 import ResultModal from '../components/ResultModal';
@@ -232,14 +232,22 @@ export default function ReportFound() {
 						</div>
 
 						{/* ช่องเลือกสถานที่ที่พบ */}
-						<LocationInput
-							placeholder="พิมพ์สถานที่ที่พบสิ่งของ เช่น คณะวิศวกรรมศาสตร์, หอสมุด"
-							value={location}
-							onChange={setLocation}
-							required
-							wrapperStyle={{ marginBottom: '10px' }}
-							inputStyle={{ ...styles.textareaWhite, border: '1px solid #E2E8F0', borderRadius: '12px' }}
-						/>
+						<div style={styles.inputBlock}>
+							<input
+								type="text"
+								list="location-suggestions"
+								placeholder="พิมพ์สถานที่ที่พบสิ่งของ เช่น คณะวิศวกรรมศาสตร์, หอสมุด"
+								value={location}
+								onChange={(e) => setLocation(e.target.value)}
+								style={{ ...styles.textareaWhite, border: 'none' }}
+								required
+							/>
+							<datalist id="location-suggestions">
+								{LOCATIONS.map((loc) => (
+									<option key={loc.value} value={loc.value} />
+								))}
+							</datalist>
+						</div>
 
 
 						<input
