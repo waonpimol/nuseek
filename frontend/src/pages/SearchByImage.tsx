@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Logo from "../components/Logo";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -35,6 +35,7 @@ export default function SearchByImage() {
   const navigate = useNavigate();
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -153,8 +154,12 @@ export default function SearchByImage() {
           <div className="lg:col-span-8 bg-white rounded-2xl p-3 sm:p-6 shadow-sm border border-gray-100 min-h-[280px] sm:min-h-[400px] flex flex-col justify-center items-center">
 
             {!previewUrl ? (
-              <label className="w-full h-full min-h-[240px] sm:min-h-[350px] border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center p-4 sm:p-6 text-center cursor-pointer hover:bg-gray-50 hover:border-orange-400 transition group">
+              <div
+                onClick={() => galleryInputRef.current?.click()}
+                className="w-full h-full min-h-[240px] sm:min-h-[350px] border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center p-4 sm:p-6 text-center cursor-pointer hover:bg-gray-50 hover:border-orange-400 transition group"
+              >
                 <input
+                  ref={galleryInputRef}
                   type="file"
                   accept="image/*"
                   className="hidden"
@@ -173,12 +178,23 @@ export default function SearchByImage() {
                   <span className="px-3.5 sm:px-5 py-1.5 sm:py-2 bg-orange-500 text-white rounded-xl text-xs sm:text-sm font-medium shadow-sm hover:bg-orange-600 transition">
                     เลือกรูปภาพ
                   </span>
-                  <span className="px-3.5 sm:px-5 py-1.5 sm:py-2 bg-sky-500 text-white rounded-xl text-xs sm:text-sm font-medium shadow-sm hover:bg-sky-600 transition flex items-center gap-1.5">
+                  {/* แยก input ของกล้อง: capture บอกมือถือให้เปิดกล้องหลังทันที (บนคอมพิวเตอร์จะเปิดเลือกไฟล์ตามปกติ) */}
+                  <label
+                    onClick={(e) => e.stopPropagation()}
+                    className="px-3.5 sm:px-5 py-1.5 sm:py-2 bg-sky-500 text-white rounded-xl text-xs sm:text-sm font-medium shadow-sm hover:bg-sky-600 transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={handleImageChange}
+                    />
                     <Camera size={12} />
                     ถ่ายรูป
-                  </span>
+                  </label>
                 </div>
-              </label>
+              </div>
             ) : (
               <div className="w-full flex flex-col items-center space-y-4 sm:space-y-6">
                 <div className="relative max-h-[240px] sm:max-h-[350px] overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-inner">
