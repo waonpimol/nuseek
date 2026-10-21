@@ -79,7 +79,7 @@ export default function ReportFound() {
 				if (!ok) {
 					setResultModal({
 						success: false,
-						message: "คุณยังไม่ได้เพิ่มช่องทางติดต่อในโปรไฟล์ (เบอร์โทร/Line/Facebook/Instagram) กรุณาเพิ่มอย่างน้อย 1 ช่องทางก่อนลงประกาศ เพื่อให้อีกฝั่งติดต่อกลับได้",
+						message: "คุณยังไม่ได้เพิ่มช่องทางติดต่อในโปรไฟล์เลย (เบอร์โทร/Line/Facebook/Instagram) กรุณาเพิ่มอย่างน้อย 1 ช่องทางก่อนลงประกาศ เพื่อให้อีกฝั่งติดต่อกลับได้",
 						goToProfile: true,
 					});
 					setLoading(false);
@@ -339,7 +339,7 @@ export default function ReportFound() {
 					resultModal?.goToProfile
 						? "ยังไม่มีช่องทางติดต่อ"
 						: resultModal?.success
-							? (resultModal?.matchedItemId ? "พบประกาศที่อาจตรงกัน" : "บันทึกประกาศสำเร็จ")
+							? (resultModal?.matchedItemId ? "เจอสิ่งของที่ตรงกันแล้ว! 🎉" : "บันทึกประกาศสำเร็จ")
 							: "เกิดข้อผิดพลาด"
 				}
 				message={resultModal?.message || ""}

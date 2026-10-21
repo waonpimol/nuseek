@@ -203,7 +203,7 @@ export default function PostDetail() {
       setResultModal({
         success: true,
         title: "ยืนยันตัวตนแล้ว",
-        message: "ระบบได้แจ้งผู้พบสิ่งของให้ติดต่อเพื่อนัดรับคืนแล้ว เมื่อได้รับสิ่งของคืน กรุณากดยืนยันเพื่อปิดเคส",
+        message: "ระบบแจ้งอีกฝั่งให้ติดต่อนัดคืนของแล้ว พอได้ของคืนแล้วอย่าลืมกลับมากดยืนยัน \"ได้รับของแล้ว\" อีกทีนะ",
       });
     } catch (err: any) {
       console.error(err);
@@ -248,11 +248,11 @@ export default function PostDetail() {
       setClaimed(true);
       setResultModal({
         success: true,
-        title: "แจ้งเจ้าของประกาศเรียบร้อยแล้ว",
+        title: "แจ้งเจ้าของโพสต์แล้ว",
         message:
           post?.type === "lost"
-            ? "ระบบได้แจ้งเจ้าของประกาศว่าคุณพบสิ่งของแล้ว กรุณารอการติดต่อกลับ เมื่อส่งมอบสิ่งของเรียบร้อย กรุณากดยืนยันเพื่อปิดเคส"
-            : "ระบบได้แจ้งเจ้าของประกาศแล้ว กรุณารอการติดต่อกลับ เมื่อส่งมอบสิ่งของเรียบร้อย กรุณากดยืนยันเพื่อปิดเคส",
+            ? "แจ้งเจ้าของโพสต์แล้วว่าคุณเจอของเขา เดี๋ยวเขาจะติดต่อกลับไปนะ รอเจ้าของกดยืนยัน \"ได้รับของแล้ว\" อีกทีเคสจะปิดสมบูรณ์"
+            : "เดี๋ยวเขาจะติดต่อกลับไปนะ รอเจ้าของกดยืนยัน \"ได้รับของแล้ว\" อีกทีเคสจะปิดสมบูรณ์",
       });
     } catch (err: any) {
       console.error(err);
@@ -277,11 +277,11 @@ export default function PostDetail() {
 
   const receiptStageText = isGiver
     ? (postOwnerReceives
-      ? "เมื่อส่งคืนสิ่งของเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดเคส"
-      : "มีผู้แจ้งว่าเป็นเจ้าของสิ่งของนี้ เมื่อส่งคืนเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดเคส")
+      ? "ถ้าส่งคืนของให้เจ้าของโพสต์เรียบร้อยแล้ว กดยืนยันเพื่อปิดเคสได้เลย"
+      : "มีคนแจ้งว่าของชิ้นนี้เป็นของเขา ถ้าส่งคืนของเรียบร้อยแล้ว กดยืนยันเพื่อปิดเคสได้เลย")
     : (postOwnerReceives
-      ? "มีผู้แจ้งว่าพบสิ่งของนี้ เมื่อได้รับคืนเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดเคส"
-      : "เมื่อได้รับสิ่งของคืนเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดเคส");
+      ? "มีคนแจ้งว่าเจอของชิ้นนี้แล้ว ถ้าได้รับของคืนจากเขาเรียบร้อยแล้ว กดยืนยันเพื่อปิดเคสได้เลย"
+      : "ถ้าได้รับของคืนจากเจ้าของโพสต์เรียบร้อยแล้ว กดยืนยันเพื่อปิดเคสได้เลย");
   const receiptStageBtnLabel = isGiver ? "ส่งคืนของแล้ว ปิดเคสนี้" : "ได้รับของคืนแล้ว ปิดเคสนี้";
 
   const handleConfirmReceipt = async () => {
@@ -289,7 +289,7 @@ export default function PostDetail() {
     setConfirmingReceipt(true);
     try {
       await confirmClaim(post.pending_claim_id, currentUserId);
-      setResultModal({ success: true, title: "ปิดเคสเรียบร้อยแล้ว", message: "ระบบได้บันทึกการส่งมอบและปิดเคสนี้เรียบร้อยแล้ว", goToAllPosts: true });
+      setResultModal({ success: true, title: "ปิดเคสแล้ว", message: "ยืนยันเรียบร้อยแล้ว เคสนี้ปิดแล้วนะ 🎉", goToAllPosts: true });
     } catch (err: any) {
       console.error(err);
       setResultModal({ success: false, title: "เกิดข้อผิดพลาด", message: err?.message || "ยืนยันไม่สำเร็จ ลองใหม่อีกครั้ง" });
@@ -309,7 +309,7 @@ export default function PostDetail() {
     setCompletingMatch(true);
     try {
       await completeMatch(post.confirmed_match_id, currentUserId);
-      setResultModal({ success: true, title: "ปิดเคสเรียบร้อยแล้ว", message: "ระบบได้บันทึกการส่งมอบและปิดเคสนี้เรียบร้อยแล้ว", goToAllPosts: true });
+      setResultModal({ success: true, title: "ปิดเคสแล้ว", message: "ยืนยันเรียบร้อยแล้ว เคสนี้ปิดแล้วนะ 🎉", goToAllPosts: true });
     } catch (err: any) {
       console.error(err);
       setResultModal({ success: false, title: "เกิดข้อผิดพลาด", message: err?.message || "ยืนยันไม่สำเร็จ ลองใหม่อีกครั้ง" });
@@ -382,7 +382,7 @@ export default function PostDetail() {
       await closeOwnItem(id, currentUserId);
       setPost(await getItem(id));
       setShowCloseConfirm(false);
-      setResultModal({ success: true, title: "ปิดประกาศแล้ว", message: "ปิดประกาศเรียบร้อยแล้ว ประกาศนี้จะแสดงในหมวด \"พบเจ้าของแล้ว\" ในโปรไฟล์ของคุณ" });
+      setResultModal({ success: true, title: "ปิดประกาศแล้ว", message: "ประกาศนี้ปิดเคสแล้ว และนับเป็น \"พบเจ้าของแล้ว\" ในโปรไฟล์ของคุณ 🎉" });
     } catch (err: any) {
       console.error(err);
       setShowCloseConfirm(false);
@@ -653,7 +653,7 @@ export default function PostDetail() {
                 <div style={styles.matchBox}>
                   <div style={styles.matchBoxText}>
                     <CheckCircle2 size={20} style={{ color: '#16A34A', flexShrink: 0 }} />
-                    <span>ระบบพบว่าสิ่งของนี้อาจตรงกับประกาศของหายของคุณ กรุณาตรวจสอบรายละเอียด หากใช่สิ่งของของคุณ กรุณากดยืนยัน หากไม่ใช่ กรุณากดปฏิเสธ</span>
+                    <span>AI ตรวจพบว่าสิ่งของนี้ตรงกับประกาศของหายของคุณ ถ้าตรวจสอบแล้วใช่จริง กดยืนยันได้เลย ถ้าไม่ใช่ก็กดปฏิเสธเพื่อยกเลิกแมทช์นี้ทิ้ง</span>
                   </div>
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' as const }}>
                     <button
@@ -678,7 +678,7 @@ export default function PostDetail() {
                 <div style={{ ...styles.matchBox, backgroundColor: '#F7FAFC', borderColor: '#E2E8F0' }}>
                   <div style={{ ...styles.matchBoxText, color: '#4A5568' }}>
                     <CheckCircle2 size={20} style={{ color: '#A0AEC0', flexShrink: 0 }} />
-                    <span>ยกเลิกการจับคู่นี้แล้ว หากมีประกาศที่ตรงกันเข้ามาใหม่ ระบบจะแจ้งเตือนให้ทราบ</span>
+                    <span>ยกเลิกแมทช์นี้แล้ว ถ้ามีของหายอื่นเข้ามาตรงกัน ระบบจะแจ้งเตือนให้ใหม่</span>
                   </div>
                 </div>
               )}
@@ -691,8 +691,8 @@ export default function PostDetail() {
                     <CheckCircle2 size={20} style={{ color: '#16A34A', flexShrink: 0 }} />
                     <span>
                       {isMatchLostOwner
-                        ? "ยืนยันตัวตนแล้ว เมื่อได้รับสิ่งของคืนเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดเคส"
-                        : "เจ้าของยืนยันแล้วว่าเป็นสิ่งของของตน เมื่อส่งคืนเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดเคส"}
+                        ? "ยืนยันตัวตนแล้ว ถ้าได้รับของคืนจากผู้แจ้งพบเรียบร้อยแล้ว กดยืนยันเพื่อปิดเคสได้เลย"
+                        : "อีกฝั่งยืนยันแล้วว่าใช่ของเขา ถ้าส่งคืนของเรียบร้อยแล้ว กดยืนยันเพื่อปิดเคสได้เลย"}
                     </span>
                   </div>
                   <button
@@ -722,8 +722,8 @@ export default function PostDetail() {
                     <CheckCircle2 size={20} style={{ color: '#16A34A', flexShrink: 0 }} />
                     <span>
                       {post.type === "lost"
-                        ? "แจ้งเจ้าของประกาศแล้วว่าคุณพบสิ่งของนี้ กรุณารอการติดต่อกลับ"
-                        : "แจ้งเจ้าของประกาศแล้ว กรุณารอการติดต่อกลับ"}
+                        ? "แจ้งเจ้าของโพสต์แล้วว่าคุณเจอของเขา รอเขาติดต่อกลับมาได้เลย"
+                        : "แจ้งเจ้าของโพสต์แล้ว รอเขาติดต่อกลับมาได้เลย"}
                     </span>
                   </div>
                 </div>
@@ -848,8 +848,8 @@ export default function PostDetail() {
                 <div className="fixed z-40 bottom-3 inset-x-3 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[600px] flex items-center gap-3 bg-white/95 backdrop-blur rounded-2xl border border-gray-100 shadow-[0_12px_32px_-6px_rgba(0,0,0,0.25)] px-3.5 py-2.5">
                   <p className="flex-1 min-w-0 text-xs sm:text-sm text-gray-600 leading-snug">
                     {post.type === "lost"
-                      ? "พบสิ่งของนี้หรือไม่? แจ้งเจ้าของประกาศเพื่อให้ติดต่อกลับ"
-                      : "เป็นสิ่งของของคุณหรือไม่? แจ้งผู้ประกาศเพื่อให้ติดต่อกลับ"}
+                      ? "เจอของชิ้นนี้ใช่ไหม? แจ้งให้เจ้าของติดต่อกลับ"
+                      : "คิดว่าเป็นของคุณใช่ไหม? แจ้งให้เจ้าของโพสต์ติดต่อกลับ"}
                   </p>
                   <button
                     onClick={handleClaim}
@@ -908,8 +908,8 @@ export default function PostDetail() {
       <ResultModal
         open={showRejectConfirm}
         success={false}
-        title="ยืนยันว่าไม่ใช่สิ่งของของคุณ?"
-        message="ระบบจะยกเลิกการจับคู่นี้ ประกาศของทั้งสองฝ่ายยังคงเปิดอยู่ตามปกติ"
+        title="ยืนยันว่าไม่ใช่ของคุณ?"
+        message="ระบบจะยกเลิกแมทช์นี้ทิ้ง ของทั้งสองฝั่งจะยังคงเป็นประกาศ active อยู่ตามปกติ"
         actionLabel={rejectingPost ? "กำลังดำเนินการ..." : "ใช่ ไม่ใช่ของฉัน"}
         onAction={async () => {
           await handleRejectOnPost();
