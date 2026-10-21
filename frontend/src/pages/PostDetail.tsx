@@ -203,7 +203,7 @@ export default function PostDetail() {
       setResultModal({
         success: true,
         title: "ยืนยันตัวตนแล้ว",
-        message: "ระบบได้แจ้งผู้พบสิ่งของให้ติดต่อเพื่อนัดรับคืนแล้ว เมื่อได้รับสิ่งของคืน กรุณากดยืนยันเพื่อปิดเคส",
+        message: "ระบบได้แจ้งผู้พบสิ่งของให้ติดต่อเพื่อนัดรับคืนแล้ว เมื่อได้รับสิ่งของคืน กรุณากดยืนยันเพื่อปิดประกาศ",
       });
     } catch (err: any) {
       console.error(err);
@@ -251,8 +251,8 @@ export default function PostDetail() {
         title: "แจ้งเจ้าของประกาศเรียบร้อยแล้ว",
         message:
           post?.type === "lost"
-            ? "ระบบได้แจ้งเจ้าของประกาศว่าคุณพบสิ่งของแล้ว กรุณารอการติดต่อกลับ เมื่อส่งมอบสิ่งของเรียบร้อย กรุณากดยืนยันเพื่อปิดเคส"
-            : "ระบบได้แจ้งเจ้าของประกาศแล้ว กรุณารอการติดต่อกลับ เมื่อส่งมอบสิ่งของเรียบร้อย กรุณากดยืนยันเพื่อปิดเคส",
+            ? "ระบบได้แจ้งเจ้าของประกาศว่าคุณพบสิ่งของแล้ว กรุณารอการติดต่อกลับ เมื่อส่งมอบสิ่งของเรียบร้อย กรุณากดยืนยันเพื่อปิดประกาศ"
+            : "ระบบได้แจ้งเจ้าของประกาศแล้ว กรุณารอการติดต่อกลับ เมื่อส่งมอบสิ่งของเรียบร้อย กรุณากดยืนยันเพื่อปิดประกาศ",
       });
     } catch (err: any) {
       console.error(err);
@@ -277,19 +277,19 @@ export default function PostDetail() {
 
   const receiptStageText = isGiver
     ? (postOwnerReceives
-      ? "เมื่อส่งคืนสิ่งของเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดเคส"
-      : "มีผู้แจ้งว่าเป็นเจ้าของสิ่งของนี้ เมื่อส่งคืนเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดเคส")
+      ? "เมื่อส่งคืนสิ่งของเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดประกาศ"
+      : "มีผู้แจ้งว่าเป็นเจ้าของสิ่งของนี้ เมื่อส่งคืนเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดประกาศ")
     : (postOwnerReceives
-      ? "มีผู้แจ้งว่าพบสิ่งของนี้ เมื่อได้รับคืนเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดเคส"
-      : "เมื่อได้รับสิ่งของคืนเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดเคส");
-  const receiptStageBtnLabel = isGiver ? "ส่งคืนของแล้ว ปิดเคสนี้" : "ได้รับของคืนแล้ว ปิดเคสนี้";
+      ? "มีผู้แจ้งว่าพบสิ่งของนี้ เมื่อได้รับคืนเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดประกาศ"
+      : "เมื่อได้รับสิ่งของคืนเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดประกาศ");
+  const receiptStageBtnLabel = isGiver ? "ส่งคืนของแล้ว ปิดประกาศ" : "ได้รับของคืนแล้ว ปิดประกาศ";
 
   const handleConfirmReceipt = async () => {
     if (!post?.pending_claim_id || !currentUserId) return;
     setConfirmingReceipt(true);
     try {
       await confirmClaim(post.pending_claim_id, currentUserId);
-      setResultModal({ success: true, title: "ปิดเคสเรียบร้อยแล้ว", message: "ระบบได้บันทึกการส่งมอบและปิดเคสนี้เรียบร้อยแล้ว", goToAllPosts: true });
+      setResultModal({ success: true, title: "ปิดประกาศเรียบร้อยแล้ว", message: "ระบบได้บันทึกการส่งมอบและปิดประกาศเรียบร้อยแล้ว", goToAllPosts: true });
     } catch (err: any) {
       console.error(err);
       setResultModal({ success: false, title: "เกิดข้อผิดพลาด", message: err?.message || "ยืนยันไม่สำเร็จ ลองใหม่อีกครั้ง" });
@@ -309,7 +309,7 @@ export default function PostDetail() {
     setCompletingMatch(true);
     try {
       await completeMatch(post.confirmed_match_id, currentUserId);
-      setResultModal({ success: true, title: "ปิดเคสเรียบร้อยแล้ว", message: "ระบบได้บันทึกการส่งมอบและปิดเคสนี้เรียบร้อยแล้ว", goToAllPosts: true });
+      setResultModal({ success: true, title: "ปิดประกาศเรียบร้อยแล้ว", message: "ระบบได้บันทึกการส่งมอบและปิดประกาศเรียบร้อยแล้ว", goToAllPosts: true });
     } catch (err: any) {
       console.error(err);
       setResultModal({ success: false, title: "เกิดข้อผิดพลาด", message: err?.message || "ยืนยันไม่สำเร็จ ลองใหม่อีกครั้ง" });
@@ -638,7 +638,7 @@ export default function PostDetail() {
                     <Clock size={18} />
                   </span>
                   <div className="min-w-0">
-                    <div className="text-[11px] text-gray-500">{post.status === "matched" && post.resolved_at ? "จบเคส" : "ลงประกาศ"}</div>
+                    <div className="text-[11px] text-gray-500">{post.status === "matched" && post.resolved_at ? "ปิดประกาศ" : "ลงประกาศ"}</div>
                     <div className="text-xs sm:text-sm font-semibold text-gray-800 leading-snug">
                       {post.status === "matched" && post.resolved_at
                         ? formatRelativeTime(post.resolved_at)
@@ -691,8 +691,8 @@ export default function PostDetail() {
                     <CheckCircle2 size={20} style={{ color: '#16A34A', flexShrink: 0 }} />
                     <span>
                       {isMatchLostOwner
-                        ? "ยืนยันตัวตนแล้ว เมื่อได้รับสิ่งของคืนเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดเคส"
-                        : "เจ้าของยืนยันแล้วว่าเป็นสิ่งของของตน เมื่อส่งคืนเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดเคส"}
+                        ? "ยืนยันตัวตนแล้ว เมื่อได้รับสิ่งของคืนเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดประกาศ"
+                        : "เจ้าของยืนยันแล้วว่าเป็นสิ่งของของตน เมื่อส่งคืนเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดประกาศ"}
                     </span>
                   </div>
                   <button
@@ -703,8 +703,8 @@ export default function PostDetail() {
                     {completingMatch
                       ? "กำลังยืนยัน..."
                       : isMatchLostOwner
-                        ? "ได้รับของคืนแล้ว ปิดเคสนี้"
-                        : "ส่งคืนของแล้ว ปิดเคสนี้"}
+                        ? "ได้รับของคืนแล้ว ปิดประกาศ"
+                        : "ส่งคืนของแล้ว ปิดประกาศ"}
                   </button>
                   <button
                     onClick={() => setCancelTarget("matches")}
@@ -897,7 +897,7 @@ export default function PostDetail() {
         open={showCloseConfirm}
         success={true}
         title={`${closeLabel}ใช่ไหม?`}
-        message="ประกาศนี้จะปิดเคส หายจากหน้าประกาศทั้งหมด และนับเป็น “พบเจ้าของแล้ว” ในโปรไฟล์ ถ้ามีแมทช์ที่ระบบจับคู่ค้างอยู่จะถูกยกเลิก"
+        message="ประกาศนี้จะถูกปิดและไม่แสดงในหน้าประกาศทั้งหมด โดยจะแสดงในหมวด “พบเจ้าของแล้ว” ในโปรไฟล์ หากมีการจับคู่ที่ค้างอยู่จะถูกยกเลิก"
         actionLabel={closingPost ? "กำลังปิด..." : "ใช่ ปิดประกาศ"}
         onAction={handleClosePost}
         confirmLabel="ยกเลิก"

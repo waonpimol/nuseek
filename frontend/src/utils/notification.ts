@@ -12,11 +12,11 @@ export function getNotificationTitle(n: Pick<AppNotification, "title" | "message
   if (m.startsWith("เจ้าของของหายยืนยันแล้ว")) return "เจ้าของยืนยันว่าเป็นของเขา";
   if (m.includes("แจ้งว่าเจอ")) return "มีคนแจ้งว่าเจอของของคุณ";
   if (m.includes("น่าจะเป็นของเขา")) return "มีคนแจ้งว่าน่าจะเป็นของเขา";
-  if (m.startsWith("อีกฝั่งยืนยันแล้ว")) return "ปิดเคสเรียบร้อยแล้ว";
+  if (m.startsWith("อีกฝั่งยืนยันแล้ว")) return "ปิดประกาศเรียบร้อยแล้ว";
   if (m.startsWith("ปิดเคสให้ประกาศ")) return "ปิดประกาศของคุณให้แล้ว";
   if (m.includes("ที่เคยแมทช์กับ")) return "ประกาศที่จับคู่กับคุณถูกลบแล้ว";
   if (m.includes("ถูกเจ้าของลบแล้ว")) return "ประกาศที่คุณแจ้งถูกลบแล้ว";
-  if (m.startsWith("เตือนความจำ:")) return "อย่าลืมกดปิดเคส";
+  if (m.startsWith("เตือนความจำ:")) return "อย่าลืมปิดประกาศ";
   if (m.startsWith("ถ้าประกาศ")) return "อย่าลืมปิดประกาศของคุณ";
   if (m.startsWith("การส่งมอบ")) return "การส่งมอบถูกยกเลิก";
   return "การแจ้งเตือน";
@@ -35,7 +35,8 @@ export function getNotificationKind(n: Pick<AppNotification, "title" | "message"
     case "มีคนแจ้งว่าเจอของของคุณ":
     case "มีคนแจ้งว่าน่าจะเป็นของเขา":
       return "claim";
-    case "ปิดเคสเรียบร้อยแล้ว":
+    case "ปิดประกาศเรียบร้อยแล้ว":
+    case "ปิดเคสเรียบร้อยแล้ว": // แจ้งเตือนเก่าก่อนเปลี่ยนคำ
     case "ปิดประกาศของคุณให้แล้ว":
       return "done";
     case "ประกาศที่จับคู่กับคุณถูกลบแล้ว":

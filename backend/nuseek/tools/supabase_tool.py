@@ -329,8 +329,8 @@ def _notify_match_completed(lost_item_id, found_item_id, confirming_user_id):
                 user_id=notify_target,
                 item_id=notify_item_id,
                 matched_item_id=notify_matched_id,
-                title="ปิดเคสเรียบร้อยแล้ว",
-                message="อีกฝั่งยืนยันแล้วว่าได้รับของคืนเรียบร้อย ปิดเคสนี้ให้แล้ว",
+                title="ปิดประกาศเรียบร้อยแล้ว",
+                message="อีกฝ่ายยืนยันว่าได้รับของคืนเรียบร้อยแล้ว ระบบได้ปิดประกาศที่เกี่ยวข้องแล้ว",
             )
     except Exception as e:
         print(f"[_notify_match_completed] error: {e}")
@@ -459,7 +459,7 @@ def complete_match(match_id: str, confirming_user_id: str = None):
 
     match = match_res.data
     if match.get("status") != "confirmed":
-        return {"success": False, "error": "ต้องรอเจ้าของของหายยืนยันตัวตนก่อน ถึงจะปิดเคสได้"}
+        return {"success": False, "error": "ต้องรอเจ้าของของหายยืนยันตัวตนก่อน ถึงจะปิดประกาศได้"}
 
     lost_item_id = match["lost_item_id"]
     found_item_id = match["found_item_id"]
@@ -500,7 +500,7 @@ def claim_item(item_id: str, claimant_user_id: str):
     if owner_id == claimant_user_id:
         return {"success": False, "error": "อ้างสิทธิ์โพสต์ของตัวเองไม่ได้"}
     if item_data.get("status") == "matched":
-        return {"success": False, "error": "เคสนี้ปิดไปแล้ว"}
+        return {"success": False, "error": "ประกาศนี้ปิดไปแล้ว"}
     if _has_handover_in_progress(item_id):
         return {"success": False, "error": "โพสต์นี้กำลังอยู่ระหว่างส่งมอบกับคนอื่นอยู่"}
 
@@ -581,7 +581,7 @@ def _get_own_active_item(item_id: str, user_id: str):
     if not user_id or item.get("user_id") != user_id:
         return None, "ทำได้เฉพาะเจ้าของโพสต์เท่านั้น"
     if item.get("status") == "matched":
-        return None, "เคสนี้ปิดไปแล้ว แก้ไขหรือลบไม่ได้"
+        return None, "ประกาศนี้ปิดไปแล้ว แก้ไขหรือลบไม่ได้"
     return item, None
 
 
@@ -615,7 +615,7 @@ def update_own_item(item_id: str, user_id: str, title: str, description: str, lo
         return {"success": False, "error": "ต้องระบุชื่อสิ่งของ"}
 
     if _has_handover_in_progress(item_id):
-        return {"success": False, "error": "กำลังอยู่ระหว่างติดต่อส่งมอบของ แก้ไขตอนนี้ไม่ได้ ถ้าข้อมูลผิดให้ปิดเคสหรือแจ้งอีกฝั่งก่อน"}
+        return {"success": False, "error": "กำลังอยู่ระหว่างติดต่อส่งมอบของ แก้ไขตอนนี้ไม่ได้ ถ้าข้อมูลผิดให้ปิดประกาศหรือแจ้งอีกฝั่งก่อน"}
 
     result = (
         supabase.table("items")
@@ -768,8 +768,8 @@ def confirm_claim(claim_id: str, confirming_user_id: str = None):
             user_id=notify_target,
             item_id=item_id,
             matched_item_id=None,
-            title="ปิดเคสเรียบร้อยแล้ว",
-            message=f'อีกฝั่งยืนยันแล้วว่า "{title or "สิ่งของ"}" ส่งคืนกันเรียบร้อย ปิดเคสนี้ให้แล้ว',
+            title="ปิดประกาศเรียบร้อยแล้ว",
+            message=f'อีกฝ่ายยืนยันว่าส่งมอบ "{title or "สิ่งของ"}" เรียบร้อยแล้ว ระบบได้ปิดประกาศที่เกี่ยวข้องแล้ว',
         )
 
     return {"success": True, "item_id": item_id}
@@ -924,10 +924,10 @@ def create_handover_reminders(user_id: str):
                 user_id=user_id,
                 item_id=item_id,
                 matched_item_id=None,
-                title="อย่าลืมกดปิดเคส",
+                title="อย่าลืมปิดประกาศ",
                 message=(
                     f'{REMINDER_PREFIX} ส่งมอบ "{titles.get(item_id) or "สิ่งของ"}" กันเรียบร้อยแล้วหรือยัง? '
-                    'ถ้าเรียบร้อยแล้วกดยืนยันเพื่อปิดเคส ถ้าไม่ใช่ของชิ้นนี้ กด "ย้อนไปตามหาใหม่"'
+                    'หากเรียบร้อยแล้ว กรุณากดยืนยันเพื่อปิดประกาศ หากไม่ใช่สิ่งของชิ้นนี้ กรุณากด "ย้อนไปตามหาใหม่"'
                 ),
             )
     except Exception as e:
