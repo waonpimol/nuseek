@@ -710,38 +710,8 @@ def delete_own_item(item_id: str, user_id: str):
 
 
 # ==========================================
-# CLOSE CLAIMANT'S OWN ORPHANED POST (side-effect ของ confirm_claim)
+# CLOSE OWN ITEM (เจ้าของปิดประกาศเอง)
 # ==========================================
-def _remind_claimant_own_posts(claimant_user_id: str, claimed_item_type: str, claimed_title: str):
-    """ปิดเคสผ่านการอ้างสิทธิ์แล้ว ถ้าผู้อ้างสิทธิ์มีประกาศประเภทตรงข้ามค้างอยู่ (เช่น เขาเคยแจ้งของหายไว้เอง)
-    แค่แจ้งให้เขาเข้าไปปิดเอง ระบบไม่เดาเองว่าอันไหนคือของชิ้นเดียวกัน (เดาผิดแล้วไปปิดประกาศของชิ้นอื่น)"""
-    if not claimant_user_id or not claimed_item_type:
-        return
-    opposite_type = "found" if claimed_item_type == "lost" else "lost"
-    try:
-        own_posts = (
-            supabase.table("items").select("id, title")
-            .eq("user_id", claimant_user_id).eq("type", opposite_type).eq("status", "active")
-            .order("created_at", desc=True).execute()
-        ).data or []
-        if not own_posts:
-            return
-        titles = ", ".join(f'"{p.get("title") or "ไม่ระบุชื่อ"}"' for p in own_posts[:3])
-        button = "ได้ของคืนแล้ว" if opposite_type == "lost" else "คืนเจ้าของแล้ว"
-        create_notification(
-            user_id=claimant_user_id,
-            item_id=own_posts[0]["id"],
-            matched_item_id=None,
-            title="อย่าลืมปิดประกาศของคุณ",
-            message=(
-                f'ถ้าประกาศ {titles} ของคุณเป็นของชิ้นเดียวกับ "{claimed_title or "สิ่งของ"}" ที่เพิ่งปิดเคสไป '
-                f'เข้าไปกด "{button}" ในเมนู ⋯ ของประกาศนั้นเพื่อปิดประกาศได้เลย'
-            ),
-        )
-    except Exception as e:
-        print(f"[_remind_claimant_own_posts] error: {e}")
-
-
 def close_own_item(item_id: str, user_id: str):
     """เจ้าของปิดประกาศของตัวเอง เมื่อได้ของคืนหรือคืนเจ้าของแล้วนอกขั้นตอนส่งมอบในระบบ (เช่น มีคนโทรมาบอก)
     ถ้ากำลังส่งมอบอยู่ (แมทช์ confirmed / คำอ้างสิทธิ์ค้าง) ต้องใช้ปุ่มของการส่งมอบแทน"""
@@ -765,9 +735,7 @@ def confirm_claim(claim_id: str, confirming_user_id: str = None):
 
     สำคัญ: ต้องแจ้งเตือนไปหา "อีกฝั่งที่ไม่ได้กด" เสมอ ไม่ว่าใครจะเป็นคนกดยืนยันก็ตาม
     (ก่อนหน้านี้เคย hardcode ไว้ว่าแจ้งไปหาผู้อ้างสิทธิ์เท่านั้น ถ้าผู้อ้างสิทธิ์เป็นคนกดเอง
-    เจ้าของโพสต์จะไม่มีทางรู้เลยว่าเคสปิดแล้ว)
-
-    ถ้าผู้อ้างสิทธิ์มีโพสต์ประเภทตรงข้ามค้างอยู่ จะแจ้งให้เขาเข้าไปปิดเอง (ดู _remind_claimant_own_posts)"""
+    เจ้าของโพสต์จะไม่มีทางรู้เลยว่าเคสปิดแล้ว)"""
     claim_res = (
         supabase.table("claims").select("*").eq("id", claim_id).maybe_single().execute()
     )
@@ -788,13 +756,10 @@ def confirm_claim(claim_id: str, confirming_user_id: str = None):
     update_item_status(item_id, "matched")
     _reject_open_matches([item_id])
 
-    item_res = supabase.table("items").select("type, title, user_id").eq("id", item_id).maybe_single().execute()
+    item_res = supabase.table("items").select("title, user_id").eq("id", item_id).maybe_single().execute()
     item_data = item_res.data if item_res else {}
     title = item_data.get("title")
     owner_id = item_data.get("user_id")
-    item_type = item_data.get("type")
-
-    _remind_claimant_own_posts(claimant_user_id, item_type, title)
 
     # แจ้งไปหา "อีกฝั่งที่ไม่ได้กด" เสมอ
     notify_target = claimant_user_id if confirming_user_id == owner_id else owner_id
